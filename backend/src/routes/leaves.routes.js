@@ -15,7 +15,7 @@ router.get('/my-leaves', authenticateToken, async (req, res) => {
         if (!empId) {
             return res.status(400).json({ success: false, error: 'Employee ID not found in token' });
         }
-        const [leaves] = await db.execute(`
+        const leaves = await db.execute(`
             SELECT * FROM leave_requests 
             WHERE emp_id = ? 
             ORDER BY created_at DESC
@@ -30,12 +30,12 @@ router.get('/my-leaves', authenticateToken, async (req, res) => {
 // Get my leave requests with explicit empId (legacy support)
 router.get('/my-leaves/:empId', authenticateToken, async (req, res) => {
     try {
-        const [leaves] = await db.execute(`
+        const leaves = await db.execute(`
             SELECT * FROM leave_requests 
             WHERE emp_id = ? 
             ORDER BY created_at DESC
         `, [req.params.empId]);
-        res.json({ success: true, leaves });
+        res.json({ success: true, leaves: leaves || [] });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

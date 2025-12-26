@@ -206,26 +206,53 @@ def extract_leave_info(text: str) -> Dict:
         days_ahead = 7 - today.weekday()
         start_date = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
     
-    # Check for month day patterns
+    # Check for month day patterns - handle date ranges with different months
     month_names = {
         'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
         'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
         'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
     }
     
-    for month_name, month_num in month_names.items():
-        pattern = rf'{month_name}\s+(\d{{1,2}})'
-        matches = re.findall(pattern, text_lower)
-        if matches:
-            day = int(matches[0])
-            year = today.year if month_num >= today.month else today.year + 1
-            try:
-                start_date = datetime(year, month_num, day).strftime("%Y-%m-%d")
-                if len(matches) > 1:
-                    end_day = int(matches[1])
-                    end_date = datetime(year, month_num, end_day).strftime("%Y-%m-%d")
-            except:
-                pass
+    # Build month pattern regex
+    month_pattern = '|'.join(month_names.keys())
+    
+    # Pattern: "month day" - find all occurrences
+    date_matches = re.findall(rf'({month_pattern})\s*(\d{{1,2}})(?:st|nd|rd|th)?', text_lower)
+    
+    if len(date_matches) >= 2:
+        # We have at least two dates - treat as date range
+        start_month_name, start_day = date_matches[0]
+        end_month_name, end_day = date_matches[1]
+        
+        start_month = month_names[start_month_name]
+        end_month = month_names[end_month_name]
+        start_day = int(start_day)
+        end_day = int(end_day)
+        
+        # Determine year
+        start_year = today.year if start_month >= today.month else today.year + 1
+        # End year - if end month < start month, it's next year
+        if end_month < start_month:
+            end_year = start_year + 1
+        else:
+            end_year = start_year
+        
+        try:
+            start_date = datetime(start_year, start_month, start_day).strftime("%Y-%m-%d")
+            end_date = datetime(end_year, end_month, end_day).strftime("%Y-%m-%d")
+        except ValueError as e:
+            print(f"Date parsing error: {e}")
+            
+    elif len(date_matches) == 1:
+        # Single date found
+        month_name, day = date_matches[0]
+        month_num = month_names[month_name]
+        day = int(day)
+        year = today.year if month_num >= today.month else today.year + 1
+        try:
+            start_date = datetime(year, month_num, day).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
     
     # If no start date found, default to tomorrow
     if not start_date:
