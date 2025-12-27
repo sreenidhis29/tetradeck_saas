@@ -468,4 +468,85 @@ router.post('/ai/ask', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * POST /api/recruitment/score
+ * AI-powered candidate scoring
+ */
+router.post('/score', authenticateToken, async (req, res) => {
+    const { candidateId, resume } = req.body;
+    
+    try {
+        const aiRes = await axios.post('http://127.0.0.1:8004/score', {
+            candidateId, resume
+        }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        // Return error to frontend - no simulation
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure recruitment RAG service is running on port 8004.'
+        });
+    }
+});
+
+/**
+ * POST /api/recruitment/questions
+ * AI-generated interview questions
+ */
+router.post('/questions', authenticateToken, async (req, res) => {
+    const { role, skills, candidateId } = req.body;
+    
+    try {
+        const aiRes = await axios.post('http://127.0.0.1:8004/questions', {
+            role, skills, candidateId
+        }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure recruitment RAG service is running on port 8004.'
+        });
+    }
+});
+
+/**
+ * POST /api/recruitment/salary
+ * AI salary recommendation
+ */
+router.post('/salary', authenticateToken, async (req, res) => {
+    const { experience, location, role } = req.body;
+    
+    try {
+        const aiRes = await axios.post('http://127.0.0.1:8004/salary', {
+            experience, location, role
+        }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure recruitment RAG service is running on port 8004.'
+        });
+    }
+});
+
+/**
+ * POST /api/recruitment/predict
+ * AI success prediction
+ */
+router.post('/predict', authenticateToken, async (req, res) => {
+    const { candidateId } = req.body;
+    
+    try {
+        const aiRes = await axios.post('http://127.0.0.1:8004/predict', {
+            candidateId
+        }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure recruitment RAG service is running on port 8004.'
+        });
+    }
+});
+
 module.exports = router;

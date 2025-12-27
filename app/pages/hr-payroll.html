@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Payroll Dashboard | Company HR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #06b6d4;
+        }
+        body { background: #f8fafc; }
+        .navbar { background: linear-gradient(135deg, #059669, #047857); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .card-header { background: white; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+        .stat-card { text-align: center; padding: 1.25rem; }
+        .stat-value { font-size: 1.75rem; font-weight: 700; }
+        .stat-label { color: #6b7280; font-size: 0.8rem; }
+        .period-card { border-left: 4px solid var(--primary); }
+        .period-card.open { border-left-color: var(--success); }
+        .period-card.processing { border-left-color: var(--warning); }
+        .period-card.exported { border-left-color: var(--info); }
+        .period-card.closed { border-left-color: #6b7280; }
+        .badge-pending { background: var(--warning); }
+        .badge-approved { background: var(--success); }
+        .badge-rejected { background: var(--danger); }
+        .action-btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+        .table-hover tbody tr:hover { background: #f1f5f9; }
+        .nav-pills .nav-link.active { background: var(--primary); }
+        .bulk-select { width: 18px; height: 18px; }
+        .alert-card { border-radius: 8px; padding: 1rem; }
+        .alert-card.alert-warning { background: #fef3c7; border: 1px solid #fcd34d; }
+        .alert-card.alert-danger { background: #fee2e2; border: 1px solid #fca5a5; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark navbar-expand-lg mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/app/index.html">
+                <i class="bi bi-building"></i> Company HR
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-item nav-link text-light">
+                    <i class="bi bi-person-badge"></i> HR Manager
+                </span>
+                <a class="nav-link text-light" href="/app/pages/leave-management.html">
+                    <i class="bi bi-calendar3"></i> Leave
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="bi bi-cash-stack"></i> HR Payroll Dashboard</h2>
+                <p class="text-muted">Manage payroll periods, review deductions, and export for QuickBooks</p>
+            </div>
+        </div>
+
+        <!-- Alert Cards -->
+        <div class="row mb-4" id="alertsRow">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-warning" id="pendingDeductions">0</div>
+                    <div class="stat-label">Pending Deductions</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-warning" id="pendingAdditions">0</div>
+                    <div class="stat-label">Pending Additions</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-danger" id="noSalaryCount">0</div>
+                    <div class="stat-label">No Salary Setup</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-info" id="unprocessedLeaves">0</div>
+                    <div class="stat-label">Unprocessed Leaves</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="stat-value text-primary" id="currentPeriodName">--</div>
+                    <div class="stat-label">Current Period</div>
+                    <span class="badge bg-success mt-1" id="currentPeriodStatus">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column: Period Management -->
+            <div class="col-lg-8">
+                <!-- Tabs -->
+                <ul class="nav nav-pills mb-3" id="mainTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="pill" href="#periodTab">
+                            <i class="bi bi-calendar3"></i> Periods
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#deductionsTab">
+                            <i class="bi bi-dash-circle"></i> Deductions
+                            <span class="badge bg-warning ms-1" id="deductionsBadge">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#additionsTab">
+                            <i class="bi bi-plus-circle"></i> Additions
+                            <span class="badge bg-warning ms-1" id="additionsBadge">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="pill" href="#salaryTab">
+                            <i class="bi bi-people"></i> Employee Salaries
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Periods Tab -->
+                    <div class="tab-pane fade show active" id="periodTab">
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Payroll Periods</span>
+                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createPeriodModal">
+                                    <i class="bi bi-plus"></i> New Period
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Period</th>
+                                                <th>Dates</th>
+                                                <th>Status</th>
+                                                <th>Deductions</th>
+                                                <th>Additions</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="periodsTable">
+                                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deductions Tab -->
+                    <div class="tab-pane fade" id="deductionsTab">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Pending Deductions Review</span>
+                                <div>
+                                    <button class="btn btn-success btn-sm me-2" id="bulkApproveDeductions">
+                                        <i class="bi bi-check-all"></i> Approve Selected
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" id="bulkRejectDeductions">
+                                        <i class="bi bi-x-lg"></i> Reject Selected
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th><input type="checkbox" class="bulk-select" id="selectAllDeductions"></th>
+                                                <th>Employee</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                                <th>Days</th>
+                                                <th>Amount</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="deductionsTable">
+                                            <tr><td colspan="8" class="text-center">Select a period to view deductions</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additions Tab -->
+                    <div class="tab-pane fade" id="additionsTab">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Pending Additions Review</span>
+                                <div>
+                                    <button class="btn btn-success btn-sm me-2" id="bulkApproveAdditions">
+                                        <i class="bi bi-check-all"></i> Approve Selected
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" id="bulkRejectAdditions">
+                                        <i class="bi bi-x-lg"></i> Reject Selected
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th><input type="checkbox" class="bulk-select" id="selectAllAdditions"></th>
+                                                <th>Employee</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                                <th>Days</th>
+                                                <th>Amount</th>
+                                                <th>Taxable</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="additionsTable">
+                                            <tr><td colspan="9" class="text-center">Select a period to view additions</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Salaries Tab -->
+                    <div class="tab-pane fade" id="salaryTab">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Employee Salary Management</span>
+                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#setSalaryModal">
+                                    <i class="bi bi-plus"></i> Set Salary
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Employee</th>
+                                                <th>Department</th>
+                                                <th>Base Salary</th>
+                                                <th>Frequency</th>
+                                                <th>Effective From</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="salariesTable">
+                                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Quick Actions -->
+            <div class="col-lg-4">
+                <!-- Current Period Actions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" id="processLeavesBtn">
+                                <i class="bi bi-arrow-repeat"></i> Process Unpaid Leaves
+                            </button>
+                            <button class="btn btn-outline-success" id="exportCSVBtn">
+                                <i class="bi bi-download"></i> Export to CSV
+                            </button>
+                            <button class="btn btn-outline-info" id="markPaidBtn">
+                                <i class="bi bi-check-circle"></i> Mark as Paid
+                            </button>
+                            <button class="btn btn-outline-secondary" id="closePeriodBtn">
+                                <i class="bi bi-lock"></i> Close Period
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unprocessed Leaves -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-exclamation-triangle text-warning"></i> Unprocessed Leaves
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="unprocessedLeavesList" style="max-height: 300px; overflow-y: auto;">
+                            <div class="list-group-item text-center text-muted">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employees Without Salary -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-person-x text-danger"></i> Missing Salary Setup
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="noSalaryList" style="max-height: 200px; overflow-y: auto;">
+                            <div class="list-group-item text-center text-muted">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Period Modal -->
+    <div class="modal fade" id="createPeriodModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Payroll Period</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Period Name</label>
+                        <input type="text" class="form-control" id="periodName" placeholder="e.g., December 2024">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="periodStart">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="periodEnd">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes (optional)</label>
+                        <textarea class="form-control" id="periodNotes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="savePeriodBtn">Create Period</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set Salary Modal -->
+    <div class="modal fade" id="setSalaryModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Set Employee Salary</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Employee</label>
+                        <select class="form-select" id="salaryEmpId">
+                            <option value="">Select Employee...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Base Salary (Monthly)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            <input type="number" class="form-control" id="salaryAmount" placeholder="50000">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Pay Frequency</label>
+                                <select class="form-select" id="salaryFrequency">
+                                    <option value="monthly">Monthly</option>
+                                    <option value="bi-weekly">Bi-Weekly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Effective From</label>
+                                <input type="date" class="form-control" id="salaryEffectiveFrom">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bank Account (Last 4 digits)</label>
+                        <input type="text" class="form-control" id="salaryBank" maxlength="4" placeholder="1234">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveSalaryBtn">Save Salary</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastBody"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let currentPeriodId = null;
+        let periods = [];
+        let employees = [];
+
+        function getToken() {
+            return localStorage.getItem('token') || 'demo-token-123';
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken()}`,
+                    ...options.headers
+                }
+            });
+            return response.json();
+        }
+
+        function showToast(title, message, type = 'info') {
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastBody').textContent = message;
+            new bootstrap.Toast(document.getElementById('toast')).show();
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount || 0);
+        }
+
+        // Load HR Dashboard
+        async function loadDashboard() {
+            try {
+                const result = await apiCall('/payroll/hr-dashboard');
+                
+                if (result.success) {
+                    // Update stats
+                    document.getElementById('pendingDeductions').textContent = result.pending_reviews?.deductions || 0;
+                    document.getElementById('pendingAdditions').textContent = result.pending_reviews?.additions || 0;
+                    document.getElementById('deductionsBadge').textContent = result.pending_reviews?.deductions || 0;
+                    document.getElementById('additionsBadge').textContent = result.pending_reviews?.additions || 0;
+                    document.getElementById('noSalaryCount').textContent = result.employees_no_salary?.length || 0;
+                    document.getElementById('unprocessedLeaves').textContent = result.unprocessed_leaves?.length || 0;
+
+                    // Current period
+                    if (result.current_period) {
+                        currentPeriodId = result.current_period.id;
+                        document.getElementById('currentPeriodName').textContent = result.current_period.period_name;
+                        document.getElementById('currentPeriodStatus').textContent = result.current_period.status;
+                    }
+
+                    // Unprocessed leaves
+                    displayUnprocessedLeaves(result.unprocessed_leaves || []);
+
+                    // No salary employees
+                    displayNoSalaryEmployees(result.employees_no_salary || []);
+
+                    // Load periods
+                    loadPeriods();
+                }
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                showToast('Error', 'Failed to load dashboard', 'error');
+            }
+        }
+
+        // Load periods
+        async function loadPeriods() {
+            try {
+                const result = await apiCall('/payroll/periods');
+                if (result.success) {
+                    periods = result.periods;
+                    displayPeriods(periods);
+                }
+            } catch (error) {
+                console.error('Periods error:', error);
+            }
+        }
+
+        // Display periods table
+        function displayPeriods(periods) {
+            const tbody = document.getElementById('periodsTable');
+            
+            if (!periods || periods.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No payroll periods. Create one to get started.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = periods.map(p => {
+                const statusClass = {
+                    'open': 'bg-success',
+                    'processing': 'bg-warning',
+                    'exported': 'bg-info',
+                    'paid': 'bg-primary',
+                    'closed': 'bg-secondary'
+                }[p.status] || 'bg-secondary';
+
+                return `
+                    <tr class="period-card ${p.status}" onclick="selectPeriod(${p.id})" style="cursor:pointer;">
+                        <td><strong>${p.period_name}</strong></td>
+                        <td>${new Date(p.start_date).toLocaleDateString()} - ${new Date(p.end_date).toLocaleDateString()}</td>
+                        <td><span class="badge ${statusClass}">${p.status}</span></td>
+                        <td>
+                            <span class="text-danger">${formatCurrency(p.total_deductions)}</span>
+                            <small class="text-muted">(${p.deduction_count})</small>
+                        </td>
+                        <td>
+                            <span class="text-success">${formatCurrency(p.total_additions)}</span>
+                            <small class="text-muted">(${p.addition_count})</small>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary action-btn" onclick="event.stopPropagation(); viewPeriodDetails(${p.id})">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Select period and load its details
+        async function selectPeriod(periodId) {
+            currentPeriodId = periodId;
+            const period = periods.find(p => p.id === periodId);
+            if (period) {
+                document.getElementById('currentPeriodName').textContent = period.period_name;
+                document.getElementById('currentPeriodStatus').textContent = period.status;
+            }
+            await Promise.all([loadDeductions(periodId), loadAdditions(periodId)]);
+            showToast('Period Selected', `Now viewing: ${period?.period_name}`);
+        }
+
+        // Load deductions for period
+        async function loadDeductions(periodId) {
+            try {
+                const result = await apiCall(`/payroll/periods/${periodId}/deductions`);
+                if (result.success) {
+                    displayDeductions(result.deductions);
+                }
+            } catch (error) {
+                console.error('Deductions error:', error);
+            }
+        }
+
+        // Display deductions
+        function displayDeductions(deductions) {
+            const tbody = document.getElementById('deductionsTable');
+            
+            if (!deductions || deductions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No deductions for this period</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = deductions.map(d => {
+                const statusClass = d.status === 'approved' ? 'badge-approved' : d.status === 'rejected' ? 'badge-rejected' : 'badge-pending';
+                const canReview = d.status === 'pending_review';
+                
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="bulk-select deduction-check" value="${d.id}" ${canReview ? '' : 'disabled'}></td>
+                        <td>${d.full_name}</td>
+                        <td><span class="badge bg-secondary">${d.deduction_type}</span></td>
+                        <td>${d.description}</td>
+                        <td>${d.days}</td>
+                        <td class="text-danger">${formatCurrency(d.amount)}</td>
+                        <td><span class="badge ${statusClass}">${d.status}</span></td>
+                        <td>
+                            ${canReview ? `
+                                <button class="btn btn-success btn-sm action-btn" onclick="reviewDeduction(${d.id}, 'approved')">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm action-btn" onclick="reviewDeduction(${d.id}, 'rejected')">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Load additions for period
+        async function loadAdditions(periodId) {
+            try {
+                const result = await apiCall(`/payroll/periods/${periodId}/additions`);
+                if (result.success) {
+                    displayAdditions(result.additions);
+                }
+            } catch (error) {
+                console.error('Additions error:', error);
+            }
+        }
+
+        // Display additions
+        function displayAdditions(additions) {
+            const tbody = document.getElementById('additionsTable');
+            
+            if (!additions || additions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No additions for this period</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = additions.map(a => {
+                const statusClass = a.status === 'approved' ? 'badge-approved' : a.status === 'rejected' ? 'badge-rejected' : 'badge-pending';
+                const canReview = a.status === 'pending_review';
+                
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="bulk-select addition-check" value="${a.id}" ${canReview ? '' : 'disabled'}></td>
+                        <td>${a.full_name}</td>
+                        <td><span class="badge bg-info">${a.addition_type}</span></td>
+                        <td>${a.description}</td>
+                        <td>${a.days}</td>
+                        <td class="text-success">${formatCurrency(a.amount)}</td>
+                        <td>${a.is_taxable ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-muted"></i>'}</td>
+                        <td><span class="badge ${statusClass}">${a.status}</span></td>
+                        <td>
+                            ${canReview ? `
+                                <button class="btn btn-success btn-sm action-btn" onclick="reviewAddition(${a.id}, 'approved')">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                                <button class="btn btn-danger btn-sm action-btn" onclick="reviewAddition(${a.id}, 'rejected')">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Display unprocessed leaves
+        function displayUnprocessedLeaves(leaves) {
+            const container = document.getElementById('unprocessedLeavesList');
+            
+            if (!leaves || leaves.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-center text-muted">All leaves processed!</div>';
+                return;
+            }
+
+            container.innerHTML = leaves.map(l => `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <strong>${l.full_name}</strong>
+                        <span class="badge bg-warning">${l.leave_type}</span>
+                    </div>
+                    <small class="text-muted">${new Date(l.start_date).toLocaleDateString()} - ${new Date(l.end_date).toLocaleDateString()}</small>
+                </div>
+            `).join('');
+        }
+
+        // Display employees without salary
+        function displayNoSalaryEmployees(employees) {
+            const container = document.getElementById('noSalaryList');
+            
+            if (!employees || employees.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-center text-success"><i class="bi bi-check-circle"></i> All employees have salary setup!</div>';
+                return;
+            }
+
+            container.innerHTML = employees.map(e => `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${e.full_name}</strong>
+                        <br><small class="text-muted">${e.department}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openSalaryModal('${e.emp_id}', '${e.full_name}')">
+                        Set Salary
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Review deduction
+        async function reviewDeduction(id, status) {
+            try {
+                const result = await apiCall(`/payroll/deductions/${id}/review`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status })
+                });
+                if (result.success) {
+                    showToast('Success', `Deduction ${status}`);
+                    loadDeductions(currentPeriodId);
+                    loadDashboard();
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        }
+
+        // Review addition
+        async function reviewAddition(id, status) {
+            try {
+                const result = await apiCall(`/payroll/additions/${id}/review`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status })
+                });
+                if (result.success) {
+                    showToast('Success', `Addition ${status}`);
+                    loadAdditions(currentPeriodId);
+                    loadDashboard();
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        }
+
+        // Create period
+        document.getElementById('savePeriodBtn').addEventListener('click', async function() {
+            const data = {
+                period_name: document.getElementById('periodName').value,
+                start_date: document.getElementById('periodStart').value,
+                end_date: document.getElementById('periodEnd').value,
+                notes: document.getElementById('periodNotes').value
+            };
+
+            if (!data.period_name || !data.start_date || !data.end_date) {
+                showToast('Error', 'Please fill all required fields');
+                return;
+            }
+
+            try {
+                const result = await apiCall('/payroll/periods', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('createPeriodModal')).hide();
+                    showToast('Success', 'Period created');
+                    loadPeriods();
+                    loadDashboard();
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        });
+
+        // Process leaves button
+        document.getElementById('processLeavesBtn').addEventListener('click', async function() {
+            if (!currentPeriodId) {
+                showToast('Error', 'Select a period first');
+                return;
+            }
+
+            try {
+                const result = await apiCall(`/payroll/periods/${currentPeriodId}/process-leaves`, { method: 'POST' });
+                if (result.success) {
+                    showToast('Success', `Processed ${result.processed_count} leave deductions`);
+                    loadDashboard();
+                    loadDeductions(currentPeriodId);
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        });
+
+        // Export CSV button
+        document.getElementById('exportCSVBtn').addEventListener('click', async function() {
+            if (!currentPeriodId) {
+                showToast('Error', 'Select a period first');
+                return;
+            }
+            window.open(`${API_BASE}/payroll/periods/${currentPeriodId}/download?token=${getToken()}`, '_blank');
+        });
+
+        // Mark as paid button
+        document.getElementById('markPaidBtn').addEventListener('click', async function() {
+            if (!currentPeriodId) {
+                showToast('Error', 'Select a period first');
+                return;
+            }
+            await updatePeriodStatus('paid');
+        });
+
+        // Close period button
+        document.getElementById('closePeriodBtn').addEventListener('click', async function() {
+            if (!currentPeriodId) {
+                showToast('Error', 'Select a period first');
+                return;
+            }
+            await updatePeriodStatus('closed');
+        });
+
+        // Update period status
+        async function updatePeriodStatus(status) {
+            try {
+                const result = await apiCall(`/payroll/periods/${currentPeriodId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status })
+                });
+                if (result.success) {
+                    showToast('Success', `Period marked as ${status}`);
+                    loadPeriods();
+                    loadDashboard();
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        }
+
+        // Select all checkboxes
+        document.getElementById('selectAllDeductions').addEventListener('change', function() {
+            document.querySelectorAll('.deduction-check:not(:disabled)').forEach(cb => cb.checked = this.checked);
+        });
+        document.getElementById('selectAllAdditions').addEventListener('change', function() {
+            document.querySelectorAll('.addition-check:not(:disabled)').forEach(cb => cb.checked = this.checked);
+        });
+
+        // Bulk approve/reject deductions
+        document.getElementById('bulkApproveDeductions').addEventListener('click', () => bulkReviewDeductions('approved'));
+        document.getElementById('bulkRejectDeductions').addEventListener('click', () => bulkReviewDeductions('rejected'));
+
+        async function bulkReviewDeductions(action) {
+            const ids = Array.from(document.querySelectorAll('.deduction-check:checked')).map(cb => parseInt(cb.value));
+            if (ids.length === 0) {
+                showToast('Error', 'Select deductions first');
+                return;
+            }
+
+            try {
+                const result = await apiCall('/payroll/deductions/bulk-approve', {
+                    method: 'POST',
+                    body: JSON.stringify({ deduction_ids: ids, action })
+                });
+                if (result.success) {
+                    showToast('Success', `${ids.length} deductions ${action}`);
+                    loadDeductions(currentPeriodId);
+                    loadDashboard();
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        }
+
+        // Open salary modal
+        function openSalaryModal(empId, empName) {
+            document.getElementById('salaryEmpId').value = empId;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('setSalaryModal')).show();
+        }
+
+        // Save salary
+        document.getElementById('saveSalaryBtn').addEventListener('click', async function() {
+            const empId = document.getElementById('salaryEmpId').value;
+            const data = {
+                base_salary: parseFloat(document.getElementById('salaryAmount').value),
+                pay_frequency: document.getElementById('salaryFrequency').value,
+                effective_from: document.getElementById('salaryEffectiveFrom').value,
+                bank_account_last4: document.getElementById('salaryBank').value
+            };
+
+            if (!empId || !data.base_salary || !data.effective_from) {
+                showToast('Error', 'Please fill required fields');
+                return;
+            }
+
+            try {
+                const result = await apiCall(`/payroll/salary/${empId}`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('setSalaryModal')).hide();
+                    showToast('Success', 'Salary saved');
+                    loadDashboard();
+                } else {
+                    showToast('Error', result.error);
+                }
+            } catch (error) {
+                showToast('Error', error.message);
+            }
+        });
+
+        // View period details
+        function viewPeriodDetails(periodId) {
+            selectPeriod(periodId);
+            document.querySelector('[href="#deductionsTab"]').click();
+        }
+
+        // Load employees for salary dropdown
+        async function loadEmployees() {
+            try {
+                // This would be an employees API - for now use a simple approach
+                const select = document.getElementById('salaryEmpId');
+                // You'd normally populate this from an API
+            } catch (e) {
+                console.error('Load employees error:', e);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            loadEmployees();
+            
+            // Set default dates for new period
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            document.getElementById('periodStart').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('periodEnd').value = lastDay.toISOString().split('T')[0];
+            document.getElementById('periodName').value = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            document.getElementById('salaryEffectiveFrom').value = today.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

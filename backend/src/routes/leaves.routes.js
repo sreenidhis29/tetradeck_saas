@@ -74,6 +74,59 @@ router.get('/pending', authenticateToken, async (req, res) => {
     }
 });
 
+// CREATE new leave request (for employee dashboard)
+router.post('/create', authenticateToken, async (req, res) => {
+    try {
+        const { type, start_date, end_date, reason, half_day } = req.body;
+        
+        // Get employee ID from token
+        const empId = req.user?.emp_id || req.user?.employeeId || 'EMP001';
+        
+        // Validate required fields
+        if (!type || !start_date || !end_date) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing required fields: type, start_date, end_date' 
+            });
+        }
+        
+        // Calculate days (simple calculation, can be enhanced)
+        const startDateObj = new Date(start_date);
+        const endDateObj = new Date(end_date);
+        let total_days = Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24)) + 1;
+        if (half_day) total_days = 0.5;
+        
+        // Generate request ID
+        const request_id = 'REQ' + Date.now();
+        
+        // Insert leave request
+        const result = await db.query(`
+            INSERT INTO leave_requests 
+            (request_id, emp_id, leave_type, start_date, end_date, total_days, reason, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+        `, [request_id, empId, type, start_date, end_date, total_days, reason || 'Personal leave']);
+        
+        res.json({ 
+            success: true, 
+            message: 'Leave request created successfully',
+            request_id: request_id,
+            request: {
+                request_id: request_id,
+                emp_id: empId,
+                leave_type: type,
+                start_date,
+                end_date,
+                total_days,
+                reason,
+                status: 'pending'
+            }
+        });
+    } catch (error) {
+        console.error('Create leave error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Update leave status (HR approve/reject) - PUT method
 router.put('/:requestId/status', authenticateToken, async (req, res) => {
     try {

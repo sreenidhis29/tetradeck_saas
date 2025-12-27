@@ -585,6 +585,10 @@
                     <i data-lucide="shield"></i>
                     <span>SECURITY</span>
                 </a>
+                <a href="../admin-payroll.html" class="nav-item animate-fade-in-left delay-500">
+                    <i data-lucide="wallet"></i>
+                    <span>PAYROLL SYSTEM</span>
+                </a>
             </nav>
 
             <div style="margin-top: auto; padding-top: 32px;">
@@ -889,8 +893,9 @@
                 document.getElementById('totalUsers').textContent = users.length;
                 document.getElementById('activeSessions').textContent = Math.floor(users.length * 0.6);
 
-                const leaves = await API.get('/leaves/all');
-                const pending = leaves.filter(l => l.status === 'Pending').length;
+                const leavesResponse = await API.get('/leaves/all');
+                const leaves = leavesResponse.leaves || leavesResponse || [];
+                const pending = leaves.filter(l => l.status?.toLowerCase() === 'pending').length;
                 document.getElementById('pendingReq').textContent = pending;
             } catch (e) {
                 console.error('Error loading data:', e);

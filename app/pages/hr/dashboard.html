@@ -601,6 +601,10 @@
                     <i data-lucide="user-plus"></i>
                     <span>Onboarding</span>
                 </a>
+                <a href="../hr-payroll.html" class="nav-item animate-fade-in-left delay-370">
+                    <i data-lucide="wallet"></i>
+                    <span>Payroll</span>
+                </a>
                 <a href="reports.html" class="nav-item animate-fade-in-left delay-400">
                     <i data-lucide="bar-chart-3"></i>
                     <span>Reports</span>
@@ -726,15 +730,16 @@
         async function loadDashboardData() {
             try {
                 // Load all leaves
-                const allLeaves = await API.get('/leaves/all');
+                const response = await API.get('/leaves/all');
+                const allLeaves = response.leaves || response || [];
 
                 // Calculate stats
-                const pending = allLeaves.filter(l => l.status === 'Pending');
+                const pending = allLeaves.filter(l => l.status?.toLowerCase() === 'pending');
                 const thisWeekApproved = allLeaves.filter(l => {
                     const created = new Date(l.created_at);
                     const weekAgo = new Date();
                     weekAgo.setDate(weekAgo.getDate() - 7);
-                    return l.status === 'Approved' && created >= weekAgo;
+                    return l.status?.toLowerCase() === 'approved' && created >= weekAgo;
                 });
 
                 const thisMonth = allLeaves.filter(l => {

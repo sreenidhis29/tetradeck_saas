@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Payroll System Health</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        body { background: #1e1e2e; color: #cdd6f4; }
+        .navbar { background: linear-gradient(135deg, #1e1e2e, #313244); border-bottom: 1px solid #45475a; }
+        .card { background: #313244; border: 1px solid #45475a; border-radius: 12px; }
+        .card-header { background: #45475a; border-bottom: 1px solid #585b70; color: #cdd6f4; }
+        .stat-card { text-align: center; padding: 1.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-label { color: #a6adc8; font-size: 0.875rem; }
+        .health-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .health-good { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .health-warning { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+        .health-error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        .table { color: #cdd6f4; }
+        .table thead th { background: #45475a; color: #cdd6f4; border-color: #585b70; }
+        .table td { border-color: #45475a; }
+        .audit-log { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.8rem; }
+        .audit-log .timestamp { color: #89b4fa; }
+        .audit-log .action { color: #f9e2af; }
+        .audit-log .entity { color: #a6e3a1; }
+        .audit-log .user { color: #f5c2e7; }
+        .form-control, .form-select { background: #45475a; border-color: #585b70; color: #cdd6f4; }
+        .form-control:focus, .form-select:focus { background: #45475a; border-color: var(--primary); color: #cdd6f4; }
+        .btn-outline-primary { color: #89b4fa; border-color: #89b4fa; }
+        .btn-outline-primary:hover { background: #89b4fa; color: #1e1e2e; }
+        .metric-chart { height: 100px; background: #45475a; border-radius: 8px; display: flex; align-items: flex-end; padding: 10px; gap: 4px; }
+        .metric-bar { flex: 1; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 10px; }
+        pre { background: #1e1e2e; padding: 1rem; border-radius: 8px; color: #a6e3a1; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/app/index.html">
+                <i class="bi bi-shield-lock"></i> Admin Panel
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/app/pages/hr-payroll.html">
+                    <i class="bi bi-cash-stack"></i> HR Payroll
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="bi bi-activity"></i> System Health & Administration</h2>
+                <p class="text-muted">Monitor payroll system health, view audit logs, and manage settings</p>
+            </div>
+        </div>
+
+        <!-- Health Overview -->
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-info" id="activeEmployees">--</div>
+                    <div class="stat-label">Active Employees</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-success" id="withSalary">--</div>
+                    <div class="stat-label">With Salary Setup</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-primary" id="totalPeriods">--</div>
+                    <div class="stat-label">Total Periods</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-warning" id="totalDeductions">--</div>
+                    <div class="stat-label">Total Deductions</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-success" id="totalAdditions">--</div>
+                    <div class="stat-label">Total Additions</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card stat-card">
+                    <div class="stat-value text-info" id="totalExports">--</div>
+                    <div class="stat-label">CSV Exports</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-server"></i> System Status
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>Database Connection</span>
+                            <span class="health-indicator health-good" id="dbStatus"></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>API Server</span>
+                            <span class="health-indicator health-good" id="apiStatus"></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>AI Constraint Engine</span>
+                            <span class="health-indicator" id="aiStatus"></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Google Integration</span>
+                            <span class="health-indicator" id="googleStatus"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-gear"></i> Payroll Settings</span>
+                        <button class="btn btn-sm btn-outline-primary" id="saveSettingsBtn">
+                            <i class="bi bi-save"></i> Save Changes
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Day Rate Formula</label>
+                                    <input type="text" class="form-control" id="dayRateFormula" value="monthly_salary / 30">
+                                    <small class="text-muted">How daily rate is calculated</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Default Currency</label>
+                                    <select class="form-select" id="currency">
+                                        <option value="INR">INR - Indian Rupee</option>
+                                        <option value="USD">USD - US Dollar</option>
+                                        <option value="EUR">EUR - Euro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">HR Approval Required</label>
+                                    <select class="form-select" id="approvalRequired">
+                                        <option value="true">Yes - HR must approve</option>
+                                        <option value="false">No - Auto-approve</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Max Encashment Days/Year</label>
+                                    <input type="number" class="form-control" id="maxEncashment" value="15" min="0" max="30">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Leave Encashment Enabled</label>
+                                    <select class="form-select" id="encashmentEnabled">
+                                        <option value="true">Yes</option>
+                                        <option value="false">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Logs -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-journal-text"></i> Audit Trail</span>
+                        <div>
+                            <select class="form-select form-select-sm d-inline-block w-auto me-2" id="auditFilter">
+                                <option value="">All Actions</option>
+                                <option value="CREATE">Create</option>
+                                <option value="REVIEW">Review</option>
+                                <option value="EXPORT">Export</option>
+                                <option value="STATUS_CHANGE">Status Change</option>
+                                <option value="SET_SALARY">Salary Changes</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary" id="refreshAuditBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm mb-0 audit-log">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Action</th>
+                                        <th>Entity</th>
+                                        <th>Employee</th>
+                                        <th>Performed By</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditTable">
+                                    <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Info -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-database"></i> Database Tables
+                    </div>
+                    <div class="card-body">
+                        <pre id="tableInfo">Loading...</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-terminal"></i> Quick Commands
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-warning" id="recalculateBtn">
+                                <i class="bi bi-calculator"></i> Recalculate All Deductions
+                            </button>
+                            <button class="btn btn-outline-info" id="healthCheckBtn">
+                                <i class="bi bi-heart-pulse"></i> Run Health Check
+                            </button>
+                            <button class="btn btn-outline-danger" id="clearCacheBtn">
+                                <i class="bi bi-trash"></i> Clear System Cache
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header bg-dark text-light">
+                <strong class="me-auto" id="toastTitle">Notification</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastBody"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        function getToken() {
+            return localStorage.getItem('token') || 'demo-token-123';
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken()}`,
+                    ...options.headers
+                }
+            });
+            return response.json();
+        }
+
+        function showToast(title, message) {
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastBody').textContent = message;
+            new bootstrap.Toast(document.getElementById('toast')).show();
+        }
+
+        // Load system health
+        async function loadSystemHealth() {
+            try {
+                const result = await apiCall('/payroll/system-health');
+                
+                if (result.success) {
+                    // Update stats
+                    const stats = result.stats || {};
+                    document.getElementById('activeEmployees').textContent = stats.active_employees || 0;
+                    document.getElementById('withSalary').textContent = stats.employees_with_salary || 0;
+                    document.getElementById('totalPeriods').textContent = stats.total_periods || 0;
+                    document.getElementById('totalDeductions').textContent = stats.total_deductions || 0;
+                    document.getElementById('totalAdditions').textContent = stats.total_additions || 0;
+                    document.getElementById('totalExports').textContent = stats.total_exports || 0;
+
+                    // Update settings
+                    const settings = result.settings || {};
+                    document.getElementById('dayRateFormula').value = settings.payroll_day_rate_formula || 'monthly_salary / 30';
+                    document.getElementById('currency').value = settings.payroll_currency || 'INR';
+                    document.getElementById('approvalRequired').value = settings.payroll_approval_required || 'true';
+                    document.getElementById('maxEncashment').value = settings.max_encashment_days || '15';
+                    document.getElementById('encashmentEnabled').value = settings.leave_encashment_enabled || 'true';
+
+                    // Display audit logs
+                    displayAuditLogs(result.recent_audit || []);
+
+                    // Update table info
+                    document.getElementById('tableInfo').textContent = `
+Payroll Tables:
+- payroll_periods: ${stats.total_periods} records
+- payroll_deductions: ${stats.total_deductions} records
+- payroll_additions: ${stats.total_additions} records
+- payroll_exports: ${stats.total_exports} records
+- employee_salary: ${stats.employees_with_salary} active records
+- payroll_audit_log: ${(result.recent_audit || []).length}+ records
+                    `.trim();
+                }
+            } catch (error) {
+                console.error('Health check error:', error);
+                showToast('Error', 'Failed to load system health');
+            }
+        }
+
+        // Display audit logs
+        function displayAuditLogs(logs) {
+            const tbody = document.getElementById('auditTable');
+            
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No audit logs yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => {
+                let details = '';
+                try {
+                    const data = JSON.parse(log.new_value || '{}');
+                    details = Object.keys(data).slice(0, 2).map(k => `${k}: ${JSON.stringify(data[k]).substring(0, 20)}`).join(', ');
+                } catch (e) {
+                    details = log.new_value?.substring(0, 50) || '';
+                }
+
+                return `
+                    <tr>
+                        <td class="timestamp">${new Date(log.created_at).toLocaleString()}</td>
+                        <td class="action">${log.action_type}</td>
+                        <td class="entity">${log.entity_type} #${log.entity_id}</td>
+                        <td>${log.emp_id || '-'}</td>
+                        <td class="user">${log.performed_by}</td>
+                        <td><small>${details}</small></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Check service status
+        async function checkServiceStatus() {
+            // Check API
+            try {
+                const health = await fetch(`${API_BASE}/health`).then(r => r.json());
+                document.getElementById('apiStatus').className = 'health-indicator health-good';
+                document.getElementById('dbStatus').className = 'health-indicator ' + (health.database === 'connected' ? 'health-good' : 'health-error');
+                
+                // Check AI service
+                if (health.aiServices?.leave?.status === 'running') {
+                    document.getElementById('aiStatus').className = 'health-indicator health-good';
+                } else {
+                    document.getElementById('aiStatus').className = 'health-indicator health-warning';
+                }
+            } catch (e) {
+                document.getElementById('apiStatus').className = 'health-indicator health-error';
+            }
+
+            // Check Google
+            try {
+                const google = await apiCall('/auth/google/status');
+                document.getElementById('googleStatus').className = 'health-indicator ' + (google.connected ? 'health-good' : 'health-warning');
+            } catch (e) {
+                document.getElementById('googleStatus').className = 'health-indicator health-warning';
+            }
+        }
+
+        // Save settings
+        document.getElementById('saveSettingsBtn').addEventListener('click', async function() {
+            const settings = {
+                payroll_day_rate_formula: document.getElementById('dayRateFormula').value,
+                payroll_currency: document.getElementById('currency').value,
+                payroll_approval_required: document.getElementById('approvalRequired').value,
+                max_encashment_days: document.getElementById('maxEncashment').value,
+                leave_encashment_enabled: document.getElementById('encashmentEnabled').value
+            };
+
+            try {
+                for (const [key, value] of Object.entries(settings)) {
+                    await apiCall(`/payroll/settings/${key}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ value })
+                    });
+                }
+                showToast('Success', 'Settings saved');
+                loadSystemHealth();
+            } catch (error) {
+                showToast('Error', 'Failed to save settings');
+            }
+        });
+
+        // Filter audit logs
+        document.getElementById('auditFilter').addEventListener('change', async function() {
+            const filter = this.value;
+            try {
+                const result = await apiCall(`/payroll/audit-logs${filter ? `?action_type=${filter}` : ''}`);
+                if (result.success) {
+                    displayAuditLogs(result.logs);
+                }
+            } catch (error) {
+                showToast('Error', 'Failed to filter logs');
+            }
+        });
+
+        // Refresh audit
+        document.getElementById('refreshAuditBtn').addEventListener('click', loadSystemHealth);
+
+        // Health check button
+        document.getElementById('healthCheckBtn').addEventListener('click', async function() {
+            showToast('Running', 'Health check started...');
+            await checkServiceStatus();
+            await loadSystemHealth();
+            showToast('Complete', 'Health check finished');
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSystemHealth();
+            checkServiceStatus();
+            
+            // Refresh every 30 seconds
+            setInterval(checkServiceStatus, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -321,4 +321,99 @@ router.post('/calibration', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * POST /api/performance/predict
+ * AI performance prediction
+ */
+router.post('/predict', authenticateToken, async (req, res) => {
+    const { employeeId } = req.body;
+    try {
+        const axios = require('axios');
+        const aiRes = await axios.post('http://127.0.0.1:8003/predict', { employeeId }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure performance AI service is running on port 8003.'
+        });
+    }
+});
+
+/**
+ * POST /api/performance/risk
+ * AI retention risk assessment
+ */
+router.post('/risk', authenticateToken, async (req, res) => {
+    const { employeeId } = req.body;
+    try {
+        const axios = require('axios');
+        const aiRes = await axios.post('http://127.0.0.1:8003/risk', { employeeId }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure performance AI service is running on port 8003.'
+        });
+    }
+});
+
+/**
+ * POST /api/performance/plan
+ * AI development plan generation
+ */
+router.post('/plan', authenticateToken, async (req, res) => {
+    const { employeeId, goals } = req.body;
+    try {
+        const axios = require('axios');
+        const aiRes = await axios.post('http://127.0.0.1:8003/plan', { employeeId, goals }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure performance AI service is running on port 8003.'
+        });
+    }
+});
+
+/**
+ * POST /api/performance/promotion
+ * AI promotion readiness evaluation
+ */
+router.post('/promotion', authenticateToken, async (req, res) => {
+    const { employeeId } = req.body;
+    try {
+        const axios = require('axios');
+        const aiRes = await axios.post('http://127.0.0.1:8003/promotion', { employeeId }, { timeout: 15000 });
+        res.json(aiRes.data);
+    } catch (error) {
+        res.status(503).json({ 
+            success: false, 
+            error: 'AI service unavailable. Ensure performance AI service is running on port 8003.'
+        });
+    }
+});
+
+/**
+ * POST /api/performance/reviews
+ * Save performance review
+ */
+router.post('/reviews', authenticateToken, async (req, res) => {
+    const { employeeId, review_period, rating, comments, goals_achieved } = req.body;
+    try {
+        const result = await db.query(`
+            INSERT INTO performance_reviews 
+            (emp_id, review_period, rating, comments, goals_achieved, reviewer_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `, [employeeId, review_period, rating, comments, goals_achieved || 0, req.user?.emp_id || 'HR001']);
+        
+        res.json({ 
+            success: true, 
+            message: 'Performance review saved',
+            review_id: result.insertId
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

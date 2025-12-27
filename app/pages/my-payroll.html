@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Payroll | Company HR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        body { background: #f8fafc; }
+        .navbar { background: linear-gradient(135deg, var(--primary), #3730a3); }
+        .card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .card-header { background: white; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+        .stat-card { text-align: center; padding: 1.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+        .stat-label { color: #6b7280; font-size: 0.875rem; }
+        .badge-pending { background: var(--warning); }
+        .badge-approved { background: var(--success); }
+        .badge-rejected { background: var(--danger); }
+        .payslip-card { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .payslip-card .card-header { background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; }
+        .amount-positive { color: var(--success); font-weight: 600; }
+        .amount-negative { color: var(--danger); font-weight: 600; }
+        .timeline { position: relative; padding-left: 30px; }
+        .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: #e5e7eb; }
+        .timeline-item { position: relative; margin-bottom: 1rem; }
+        .timeline-item::before { content: ''; position: absolute; left: -25px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); }
+        .salary-hidden { filter: blur(4px); cursor: pointer; }
+        .salary-hidden:hover::after { content: 'Click to reveal'; position: absolute; background: #333; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark navbar-expand-lg mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/app/index.html">
+                <i class="bi bi-building"></i> Company HR
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-item nav-link text-light" id="userInfo">
+                    <i class="bi bi-person-circle"></i> <span id="userName">Loading...</span>
+                </span>
+                <a class="nav-link text-light" href="/app/pages/leave-management.html">
+                    <i class="bi bi-calendar3"></i> Leave
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="bi bi-wallet2"></i> My Payroll</h2>
+                <p class="text-muted">View your salary, deductions, and payslip history</p>
+            </div>
+        </div>
+
+        <!-- Salary Overview -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="stat-value" id="baseSalary">--</div>
+                    <div class="stat-label">Monthly Base Salary</div>
+                    <small class="text-muted" id="effectiveFrom">--</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="stat-value text-danger" id="totalDeductions">₹0</div>
+                    <div class="stat-label">This Month Deductions</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="stat-value text-success" id="totalAdditions">₹0</div>
+                    <div class="stat-label">This Month Additions</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Current Period Details -->
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-calendar-month"></i> Current Pay Period</span>
+                        <span class="badge bg-primary" id="periodStatus">--</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="currentPeriodInfo">
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-hourglass-split fs-1"></i>
+                                <p class="mt-2">No active payroll period</p>
+                            </div>
+                        </div>
+                        
+                        <!-- My Deductions This Period -->
+                        <h6 class="mt-4 mb-3"><i class="bi bi-dash-circle text-danger"></i> My Deductions</h6>
+                        <div id="myDeductionsList">
+                            <div class="text-muted small">No deductions this period</div>
+                        </div>
+                        
+                        <!-- My Additions This Period -->
+                        <h6 class="mt-4 mb-3"><i class="bi bi-plus-circle text-success"></i> My Additions</h6>
+                        <div id="myAdditionsList">
+                            <div class="text-muted small">No additions this period</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leave Impact -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-calendar-x"></i> Leave Impact on Salary
+                    </div>
+                    <div class="card-body">
+                        <div id="leaveImpact">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Leave Type</th>
+                                        <th>Days</th>
+                                        <th>Paid/Unpaid</th>
+                                        <th>Impact</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaveImpactBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No leaves this period</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="col-md-4">
+                <!-- Leave Encashment Request -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-cash-coin"></i> Request Leave Encashment
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-3">Convert your earned leave balance to cash</p>
+                        <div class="mb-3">
+                            <label class="form-label">Available Balance</label>
+                            <div class="fs-4 fw-bold text-primary" id="leaveBalance">-- days</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Days to Encash</label>
+                            <input type="number" class="form-control" id="encashDays" min="1" max="15" placeholder="Max 15 days">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Estimated Amount</label>
+                            <div class="fs-5 text-success" id="encashEstimate">₹0</div>
+                        </div>
+                        <button class="btn btn-success w-100" id="requestEncashmentBtn">
+                            <i class="bi bi-send"></i> Request Encashment
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pay History -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-clock-history"></i> Pay History
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="payHistory">
+                            <div class="list-group-item text-center text-muted">
+                                Loading history...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Items -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-hourglass-split"></i> Pending Items
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="pendingItems">
+                            <div class="list-group-item text-center text-muted">
+                                No pending items
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastBody"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let currentUser = null;
+        let salaryInfo = null;
+        let currentPeriod = null;
+        let dailyRate = 0;
+
+        // Get auth token
+        function getToken() {
+            return localStorage.getItem('token') || 'demo-token-123';
+        }
+
+        // API call helper
+        async function apiCall(endpoint, options = {}) {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken()}`,
+                    ...options.headers
+                }
+            });
+            return response.json();
+        }
+
+        // Show toast notification
+        function showToast(title, message, type = 'info') {
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastBody').textContent = message;
+            const toast = new bootstrap.Toast(document.getElementById('toast'));
+            toast.show();
+        }
+
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 0
+            }).format(amount || 0);
+        }
+
+        // Load user info
+        async function loadUserInfo() {
+            try {
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    currentUser = JSON.parse(userData);
+                    document.getElementById('userName').textContent = currentUser.name || currentUser.email;
+                }
+            } catch (e) {
+                console.error('Error loading user:', e);
+            }
+        }
+
+        // Load my payroll summary
+        async function loadPayrollSummary() {
+            try {
+                const result = await apiCall('/payroll/my-summary');
+                
+                if (result.success) {
+                    salaryInfo = result.salary_info;
+                    
+                    // Display salary info
+                    if (salaryInfo) {
+                        document.getElementById('baseSalary').textContent = formatCurrency(salaryInfo.base_salary);
+                        document.getElementById('effectiveFrom').textContent = `Effective from: ${new Date(salaryInfo.effective_from).toLocaleDateString()}`;
+                        dailyRate = salaryInfo.base_salary / 30;
+                    } else {
+                        document.getElementById('baseSalary').textContent = 'Not Set';
+                        document.getElementById('effectiveFrom').textContent = 'Contact HR to setup salary';
+                    }
+
+                    // Display recent periods
+                    displayPayHistory(result.recent_periods || []);
+
+                    // Calculate totals from pending items
+                    let totalDed = 0;
+                    let totalAdd = 0;
+                    
+                    (result.pending_deductions || []).forEach(d => totalDed += parseFloat(d.amount));
+                    (result.pending_additions || []).forEach(a => totalAdd += parseFloat(a.amount));
+                    
+                    document.getElementById('totalDeductions').textContent = formatCurrency(totalDed);
+                    document.getElementById('totalAdditions').textContent = formatCurrency(totalAdd);
+
+                    // Display pending items
+                    displayPendingItems(result.pending_deductions || [], result.pending_additions || []);
+                }
+            } catch (error) {
+                console.error('Load summary error:', error);
+                showToast('Error', 'Failed to load payroll summary', 'error');
+            }
+        }
+
+        // Display pay history
+        function displayPayHistory(periods) {
+            const container = document.getElementById('payHistory');
+            
+            if (!periods || periods.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-center text-muted">No pay history yet</div>';
+                return;
+            }
+
+            container.innerHTML = periods.slice(0, 6).map(p => {
+                const myDeductions = parseFloat(p.my_deductions) || 0;
+                const myAdditions = parseFloat(p.my_additions) || 0;
+                const statusClass = p.status === 'paid' ? 'bg-success' : p.status === 'closed' ? 'bg-secondary' : 'bg-warning';
+                
+                return `
+                    <a href="#" class="list-group-item list-group-item-action" onclick="viewPeriodDetails(${p.id})">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${p.period_name}</strong>
+                                <br><small class="text-muted">${new Date(p.start_date).toLocaleDateString()} - ${new Date(p.end_date).toLocaleDateString()}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge ${statusClass}">${p.status}</span>
+                                ${myDeductions > 0 ? `<br><small class="text-danger">-${formatCurrency(myDeductions)}</small>` : ''}
+                                ${myAdditions > 0 ? `<br><small class="text-success">+${formatCurrency(myAdditions)}</small>` : ''}
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        // Display pending items
+        function displayPendingItems(deductions, additions) {
+            const container = document.getElementById('pendingItems');
+            const items = [];
+            
+            deductions.forEach(d => {
+                items.push(`
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <i class="bi bi-dash-circle text-danger"></i>
+                                <span class="ms-2">${d.description}</span>
+                            </div>
+                            <span class="text-danger">-${formatCurrency(d.amount)}</span>
+                        </div>
+                        <small class="text-muted">Period: ${d.period_name}</small>
+                        <span class="badge badge-pending ms-2">Pending Review</span>
+                    </div>
+                `);
+            });
+            
+            additions.forEach(a => {
+                items.push(`
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <i class="bi bi-plus-circle text-success"></i>
+                                <span class="ms-2">${a.description}</span>
+                            </div>
+                            <span class="text-success">+${formatCurrency(a.amount)}</span>
+                        </div>
+                        <small class="text-muted">Period: ${a.period_name}</small>
+                        <span class="badge badge-pending ms-2">Pending Review</span>
+                    </div>
+                `);
+            });
+            
+            if (items.length === 0) {
+                container.innerHTML = '<div class="list-group-item text-center text-muted">No pending items</div>';
+            } else {
+                container.innerHTML = items.join('');
+            }
+        }
+
+        // Load leave balance for encashment
+        async function loadLeaveBalance() {
+            try {
+                // This would typically call a leave balance API
+                const result = await apiCall('/leaves/balance');
+                if (result.success && result.balance) {
+                    const earned = result.balance.find(b => b.leave_type === 'earned');
+                    if (earned) {
+                        document.getElementById('leaveBalance').textContent = `${earned.balance} days`;
+                        document.getElementById('encashDays').max = Math.min(earned.balance, 15);
+                    }
+                }
+            } catch (e) {
+                console.log('Leave balance not available');
+            }
+        }
+
+        // Calculate encashment estimate
+        document.getElementById('encashDays').addEventListener('input', function() {
+            const days = parseInt(this.value) || 0;
+            const estimate = days * dailyRate;
+            document.getElementById('encashEstimate').textContent = formatCurrency(estimate);
+        });
+
+        // Request leave encashment
+        document.getElementById('requestEncashmentBtn').addEventListener('click', async function() {
+            const days = parseInt(document.getElementById('encashDays').value);
+            
+            if (!days || days < 1) {
+                showToast('Error', 'Please enter valid number of days', 'error');
+                return;
+            }
+
+            // Get current open period
+            const periodsResult = await apiCall('/payroll/periods?status=open');
+            if (!periodsResult.success || !periodsResult.periods || periodsResult.periods.length === 0) {
+                showToast('Error', 'No open payroll period. Contact HR.', 'error');
+                return;
+            }
+
+            const periodId = periodsResult.periods[0].id;
+
+            try {
+                const result = await apiCall('/payroll/encashment', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        payroll_period_id: periodId,
+                        days: days
+                    })
+                });
+
+                if (result.success) {
+                    showToast('Success', 'Encashment request submitted for HR approval', 'success');
+                    document.getElementById('encashDays').value = '';
+                    document.getElementById('encashEstimate').textContent = '₹0';
+                    loadPayrollSummary();
+                } else {
+                    showToast('Error', result.error || 'Failed to submit request', 'error');
+                }
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            }
+        });
+
+        // View period details (for pay history click)
+        async function viewPeriodDetails(periodId) {
+            try {
+                const [deductions, additions] = await Promise.all([
+                    apiCall(`/payroll/my-deductions?period_id=${periodId}`),
+                    apiCall(`/payroll/my-additions?period_id=${periodId}`)
+                ]);
+
+                // Display in modal or expand section
+                let details = '<h6>Deductions</h6>';
+                if (deductions.success && deductions.deductions.length > 0) {
+                    deductions.deductions.forEach(d => {
+                        details += `<div class="mb-2">${d.description}: <span class="text-danger">${formatCurrency(d.amount)}</span></div>`;
+                    });
+                } else {
+                    details += '<div class="text-muted">No deductions</div>';
+                }
+
+                details += '<h6 class="mt-3">Additions</h6>';
+                if (additions.success && additions.additions.length > 0) {
+                    additions.additions.forEach(a => {
+                        details += `<div class="mb-2">${a.description}: <span class="text-success">${formatCurrency(a.amount)}</span></div>`;
+                    });
+                } else {
+                    details += '<div class="text-muted">No additions</div>';
+                }
+
+                // For now, show in current period section
+                document.getElementById('currentPeriodInfo').innerHTML = details;
+            } catch (error) {
+                console.error('Error loading period details:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserInfo();
+            loadPayrollSummary();
+            loadLeaveBalance();
+        });
+    </script>
+</body>
+</html>
