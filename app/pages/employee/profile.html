@@ -672,15 +672,16 @@
 
             // Load full profile
             try {
-                const profile = await API.get('/auth/me');
+                const response = await API.get('/auth/me');
+                const profile = response.user || response; // Handle both formats
 
-                document.getElementById('profileName').innerText = profile.name;
-                document.getElementById('profileEmail').innerText = profile.email;
-                document.getElementById('profileRole').innerText = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
-                document.getElementById('profileId').innerText = `#EMP${String(profile.id).padStart(4, '0')}`;
+                document.getElementById('profileName').innerText = profile.name || 'N/A';
+                document.getElementById('profileEmail').innerText = profile.email || 'N/A';
+                document.getElementById('profileRole').innerText = (profile.role || 'employee').charAt(0).toUpperCase() + (profile.role || 'employee').slice(1);
+                document.getElementById('profileId').innerText = profile.empId || `#EMP${String(profile.id).padStart(4, '0')}`;
 
-                if (profile.created_at) {
-                    const date = new Date(profile.created_at);
+                if (profile.createdAt || profile.created_at) {
+                    const date = new Date(profile.createdAt || profile.created_at);
                     const formatted = date.toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',

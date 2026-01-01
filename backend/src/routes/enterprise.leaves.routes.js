@@ -38,9 +38,9 @@ router.post('/submit', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Employee ID required' });
         }
 
-        // Get employee details
+        // Get employee details (using country_code directly if available)
         const employee = await db.getOne(
-            'SELECT e.*, c.country_code FROM employees e LEFT JOIN countries c ON e.country = c.country_name WHERE e.emp_id = ?',
+            'SELECT * FROM employees WHERE emp_id = ?',
             [emp_id]
         );
 
@@ -71,8 +71,30 @@ router.post('/submit', authenticateToken, async (req, res) => {
         // Generate request ID
         const request_id = `LR${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
+        // =====================================================
+        // GET AI MODE CONFIGURATION
+        // =====================================================
+        let aiMode = 'automatic';
+        let normalModeAutoApproveTypes = ['sick_leave'];
+        try {
+            const modeConfig = await db.getOne(
+                "SELECT config_value FROM ai_system_config WHERE config_key = 'leave_ai_mode'"
+            );
+            aiMode = modeConfig?.config_value || 'automatic';
+
+            const autoApproveTypesConfig = await db.getOne(
+                "SELECT config_value FROM ai_system_config WHERE config_key = 'normal_mode_auto_approve_types'"
+            );
+            if (autoApproveTypesConfig?.config_value) {
+                normalModeAutoApproveTypes = JSON.parse(autoApproveTypesConfig.config_value);
+            }
+        } catch (configError) {
+            console.warn('Could not fetch AI mode config, using default:', configError.message);
+        }
+
         // Analyze with AI engine
         let aiAnalysis;
+        let aiEngineAvailable = false;
         try {
             const analysisResponse = await axios.post(`${AI_ENGINE_URL}/analyze`, {
                 request_id,
@@ -88,40 +110,93 @@ router.post('/submit', authenticateToken, async (req, res) => {
                 reason,
                 attachments,
                 handover_to
-            });
+            }, { timeout: 5000 });
             aiAnalysis = analysisResponse.data;
+            aiEngineAvailable = true;
         } catch (e) {
             console.error('AI Analysis error:', e.message);
+            // Fallback when AI engine is offline
+            const isSickLeave = leave_type === 'sick_leave';
+            const isShortLeave = workingDays.working_days <= 3;
+            
+            // In automatic mode: auto-approve short leaves (<= 3 days)
+            // In normal mode: only sick_leave auto-approves
+            let shouldAutoApprove = false;
+            if (aiMode === 'automatic') {
+                shouldAutoApprove = isShortLeave; // Auto-approve short leaves in automatic mode
+            } else {
+                shouldAutoApprove = isSickLeave && isShortLeave; // Only sick leave in normal mode
+            }
+            
             aiAnalysis = {
-                recommendation: 'review',
-                confidence: 0.5,
-                can_auto_approve: false,
-                approval_chain: { levels: [{ level: 1, role: 'manager' }] }
+                recommendation: shouldAutoApprove ? 'approve' : 'review',
+                confidence: shouldAutoApprove ? 0.8 : 0.5,
+                can_auto_approve: shouldAutoApprove,
+                approval_chain: { levels: [{ level: 1, role: 'manager' }] },
+                ai_engine_offline: true
             };
         }
 
-        // Determine initial status based on AI recommendation
+        // =====================================================
+        // DETERMINE STATUS BASED ON AI MODE
+        // =====================================================
         let initialStatus = 'pending';
         let currentApprovalLevel = 1;
+        let processingNotes = '';
+        let hrAssignedAt = null;
         
-        if (aiAnalysis.can_auto_approve && aiAnalysis.recommendation === 'approve') {
-            initialStatus = 'approved';
-        } else if (aiAnalysis.recommendation === 'reject' && aiAnalysis.constraints?.critical_failures?.length > 0) {
-            // Don't auto-reject, but flag for HR review
-            initialStatus = 'pending_hr';
+        if (aiMode === 'automatic') {
+            // AUTOMATIC MODE: AI handles all leave types
+            if (aiAnalysis.can_auto_approve && aiAnalysis.recommendation === 'approve') {
+                initialStatus = 'approved';
+                processingNotes = 'Auto-approved by AI in automatic mode';
+            } else if (aiAnalysis.recommendation === 'reject' && aiAnalysis.constraints?.critical_failures?.length > 0) {
+                initialStatus = 'pending_hr';
+                processingNotes = 'Flagged for HR review due to policy violations';
+            } else {
+                initialStatus = 'pending';
+                processingNotes = `AI recommendation: ${aiAnalysis.recommendation}. Awaiting approval.`;
+            }
+        } else {
+            // NORMAL MODE: AI only auto-approves specific leave types (default: sick_leave)
+            const canAIHandle = normalModeAutoApproveTypes.includes(leave_type);
+            
+            if (canAIHandle) {
+                // This leave type can be auto-processed by AI in normal mode
+                if (aiAnalysis.can_auto_approve && aiAnalysis.recommendation === 'approve') {
+                    initialStatus = 'approved';
+                    processingNotes = `Auto-approved by AI in normal mode (${leave_type} is auto-approve eligible)`;
+                } else if (aiAnalysis.recommendation === 'escalate' || aiAnalysis.recommendation === 'review') {
+                    // Even sick leave can be escalated if rules don't match
+                    initialStatus = 'pending';
+                    hrAssignedAt = new Date();
+                    processingNotes = `AI could not auto-approve ${leave_type}. Escalated to HR for review.`;
+                } else {
+                    initialStatus = 'pending';
+                    hrAssignedAt = new Date();
+                    processingNotes = `${leave_type} requires HR review in normal mode`;
+                }
+            } else {
+                // This leave type goes directly to HR in normal mode
+                initialStatus = 'pending';
+                hrAssignedAt = new Date();
+                processingNotes = `Normal mode active: ${leave_type} assigned to HR for review. Employee can set priority after 7 hours if no HR response.`;
+            }
         }
 
-        // Insert leave request
+        // Insert leave request (using columns that exist in the table)
         await db.execute(`
             INSERT INTO leave_requests (
                 request_id, emp_id, leave_type, start_date, end_date,
-                total_days, status, reason, ai_recommendation, ai_confidence,
+                total_days, status, reason, constraint_engine_decision,
+                ai_mode_at_submission, hr_assigned_at, processing_notes,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
             request_id, emp_id, leave_type, start_date, end_date,
             workingDays.working_days, initialStatus, reason,
-            aiAnalysis.recommendation, aiAnalysis.confidence
+            JSON.stringify({ recommendation: aiAnalysis.recommendation, confidence: aiAnalysis.confidence }),
+            aiMode, hrAssignedAt, processingNotes
         ]);
 
         // Log to audit
@@ -161,11 +236,48 @@ router.post('/submit', authenticateToken, async (req, res) => {
             }
         });
 
+        // Notify HR if assigned in normal mode
+        if (aiMode === 'normal' && hrAssignedAt && initialStatus === 'pending') {
+            try {
+                await db.execute(`
+                    INSERT INTO hr_notification_queue 
+                    (notification_type, request_id, recipient_role, priority_level, title, message, data)
+                    VALUES ('pending_review', ?, 'hr', 'normal', ?, ?, ?)
+                `, [
+                    request_id,
+                    `New Leave Request: ${employee.full_name} - ${leave_type}`,
+                    `${employee.full_name} has submitted a ${leave_type} request for ${workingDays.working_days} day(s).`,
+                    JSON.stringify({
+                        employeeName: employee.full_name,
+                        leaveType: leave_type,
+                        startDate: start_date,
+                        endDate: end_date,
+                        totalDays: workingDays.working_days,
+                        reason
+                    })
+                ]);
+            } catch (notifyError) {
+                console.warn('Could not create HR notification:', notifyError.message);
+            }
+        }
+
+        // Build response message based on mode
+        let responseMessage;
+        if (initialStatus === 'approved') {
+            responseMessage = 'Leave request auto-approved!';
+        } else if (aiMode === 'normal') {
+            responseMessage = `Leave request submitted. Your ${leave_type} request has been sent to HR for review. If you don't receive a response within 7 hours, you can set a priority badge.`;
+        } else {
+            responseMessage = 'Leave request submitted for approval';
+        }
+
         res.json({
             success: true,
             request_id,
             status: initialStatus,
             working_days: workingDays.working_days,
+            ai_mode: aiMode,
+            processing_notes: processingNotes,
             ai_analysis: {
                 recommendation: aiAnalysis.recommendation,
                 confidence: aiAnalysis.confidence,
@@ -173,9 +285,11 @@ router.post('/submit', authenticateToken, async (req, res) => {
                 critical_issues: aiAnalysis.constraints?.critical_failures?.length || 0
             },
             approval_chain: aiAnalysis.approval_chain,
-            message: initialStatus === 'approved' 
-                ? 'Leave request auto-approved!' 
-                : 'Leave request submitted for approval'
+            priority_badge_info: aiMode === 'normal' && initialStatus === 'pending' ? {
+                canSetPriorityAfterHours: 7,
+                description: 'If HR does not respond within 7 hours, you can set a priority badge (Yellow for non-urgent, Red for emergency)'
+            } : null,
+            message: responseMessage
         });
 
     } catch (error) {

@@ -36,7 +36,7 @@ CONSTRAINT_RULES = {
             "Sick Leave": 15,
             "Emergency Leave": 5,
             "Personal Leave": 5,
-            "Maternity Leave": 180,
+            "Maternity Leave": 18,
             "Paternity Leave": 15,
             "Bereavement Leave": 5,
             "Study Leave": 10

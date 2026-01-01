@@ -600,7 +600,7 @@
                 
                 // If no employee-specific record, check for any onboarding by email
                 if (!myOnboarding && user.email) {
-                    const allResponse = await API.get('/api/onboarding/all');
+                    const allResponse = await API.get('/onboarding/all');
                     if (allResponse.success && allResponse.onboardings?.length > 0) {
                         // Find by email match - REAL DATA LOOKUP
                         myOnboarding = allResponse.onboardings.find(o => o.email === user.email) || allResponse.onboardings[0];
@@ -738,7 +738,7 @@
 
             try {
                 // REAL API CALL to Onboarding Constraint Engine
-                const response = await API.post('/api/onboarding/ask', { question });
+                const response = await API.post('/onboarding/ask', { question });
 
                 if (response.success && response.answer) {
                     showAIResponse(`
@@ -769,7 +769,7 @@
                 const user = JSON.parse(localStorage.getItem('user') || '{}');
                 
                 // Call REAL AI analyze endpoint with actual employee data
-                const response = await API.post('/api/onboarding/analyze', {
+                const response = await API.post('/onboarding/analyze', {
                     employee_data: {
                         name: onboarding.employee_name || user.name || 'Employee',
                         role: onboarding.role || 'Team Member',
@@ -841,7 +841,7 @@
                 else if (fileName.includes('offer')) documentType = 'Offer Letter';
                 
                 // Call REAL AI document help endpoint
-                const response = await API.post('/api/onboarding/document-help', {
+                const response = await API.post('/onboarding/document-help', {
                     document_type: documentType,
                     document_name: file.name,
                     country: currentOnboardingData?.country || 'US',

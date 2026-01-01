@@ -438,22 +438,12 @@
 
         function getToken() {
             // Check localStorage for real token first
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
             if (token) return token;
             
-            // Check if user info exists in localStorage
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    if (user.role === 'hr' || user.role === 'admin') {
-                        return user.role === 'admin' ? 'admin-demo-token' : 'hr-demo-token';
-                    }
-                } catch(e) {}
-            }
-            
-            // For HR payroll page, default to HR token for testing
-            return 'hr-demo-token';
+            // No token - redirect to login
+            window.location.href = '/index.html';
+            return null;
         }
 
         function getCurrentUser() {
@@ -463,8 +453,9 @@
                     return JSON.parse(userStr);
                 } catch(e) {}
             }
-            // Default HR user for testing
-            return { name: 'HR Manager', role: 'hr', emp_id: 'EMP002' };
+            // No user - redirect to login
+            window.location.href = '/index.html';
+            return null;
         }
 
         async function apiCall(endpoint, options = {}) {

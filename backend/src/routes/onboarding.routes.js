@@ -144,6 +144,35 @@ router.get('/country-rules/:country', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/onboarding/get-actions
+ * Get AI-generated actions for a phase (proxy to AI engine)
+ */
+router.post('/get-actions', authenticateToken, async (req, res) => {
+    try {
+        const { phase, context } = req.body;
+        const response = await axios.post(
+            `${ONBOARDING_ENGINE_URL}/get-actions`,
+            { phase, context },
+            { timeout: 10000 }
+        );
+        res.json(response.data);
+    } catch (error) {
+        // Return default actions if AI service is down
+        const defaultActions = {
+            'pre_boarding': ['Complete new hire paperwork', 'Set up IT accounts', 'Assign mentor'],
+            'day_one': ['Welcome orientation', 'Team introductions', 'Workspace setup'],
+            'week_one': ['Complete compliance training', 'Meet with manager', 'Review team processes'],
+            'month_one': ['Complete departmental training', 'Set initial goals', 'First project assignment']
+        };
+        res.json({ 
+            success: true, 
+            actions: defaultActions[req.body.phase] || [],
+            source: 'fallback'
+        });
+    }
+});
+
+/**
  * GET /api/onboarding/audit/:id
  * Get audit log for onboarding
  */

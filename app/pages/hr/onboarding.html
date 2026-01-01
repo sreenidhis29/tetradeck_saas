@@ -1273,25 +1273,20 @@
                     'completed': '✅ COMPLETION CHECKLIST'
                 };
                 
-                // Call AI engine to get actions for each phase
+                // Call AI engine to get actions for each phase via backend proxy
                 const phaseActions = {};
                 for (const phase of phases.slice(0, 4)) { // Get first 4 phases for plan
                     try {
-                        const response = await fetch(`http://localhost:8002/get-actions`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                phase: phase,
-                                context: {
-                                    name: name,
-                                    role: role,
-                                    department: department,
-                                    location: location,
-                                    start_date: startDate
-                                }
-                            })
+                        const data = await API.post('/onboarding/get-actions', {
+                            phase: phase,
+                            context: {
+                                name: name,
+                                role: role,
+                                department: department,
+                                location: location,
+                                start_date: startDate
+                            }
                         });
-                        const data = await response.json();
                         phaseActions[phase] = data.actions || [];
                     } catch (err) {
                         console.log(`Could not get actions for ${phase}:`, err);
@@ -1299,11 +1294,11 @@
                     }
                 }
                 
-                // Also get country rules for compliance context
+                // Also get country rules for compliance context via backend
                 let countryRules = {};
                 try {
-                    const countryResponse = await fetch(`http://localhost:8002/country-rules/${location}`);
-                    countryRules = await countryResponse.json();
+                    const countryData = await API.get(`/onboarding/country-rules/${location}`);
+                    countryRules = countryData;
                 } catch (err) {
                     console.log('Could not get country rules:', err);
                 }

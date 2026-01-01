@@ -333,6 +333,106 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
+        /* Priority Badges */
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-left: 8px;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+
+        .priority-badge.red {
+            background: rgba(220, 38, 38, 0.3);
+            color: #fca5a5;
+            border: 1px solid rgba(220, 38, 38, 0.5);
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+        }
+
+        .priority-badge.yellow {
+            background: rgba(245, 158, 11, 0.3);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.5);
+        }
+
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Priority Notification Banner */
+        .priority-banner {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(245, 158, 11, 0.2));
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .priority-banner.show {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .priority-banner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .priority-banner-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fca5a5;
+        }
+
+        .priority-banner-title i {
+            width: 24px;
+            height: 24px;
+        }
+
+        .priority-banner-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .priority-stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .priority-stat.red {
+            color: #fca5a5;
+        }
+
+        .priority-stat.yellow {
+            color: #fcd34d;
+        }
+
+        .priority-stat-count {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
         .leave-actions {
             display: flex;
             gap: 10px;
@@ -375,6 +475,34 @@
         .action-btn i {
             width: 20px;
             height: 20px;
+        }
+
+        /* Notification Bell with Count */
+        .notification-wrapper {
+            position: relative;
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc2626;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
 
         .icon-btn {
@@ -469,6 +597,198 @@
             font-size: 1rem;
             color: rgba(255, 255, 255, 0.5);
         }
+
+        /* Notification Wrapper */
+        .notification-wrapper {
+            position: relative;
+        }
+
+        /* Priority Leave Item Styling */
+        .leave-item.has-priority {
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(15, 15, 35, 0.95) 100%);
+        }
+
+        .leave-item.has-priority:hover {
+            border-color: rgba(239, 68, 68, 0.6);
+        }
+
+        /* Notification Modal */
+        .notification-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .notification-modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .notification-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .notification-modal-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 1.2rem;
+            margin: 0;
+        }
+
+        .notification-modal-header h3 i {
+            width: 20px;
+            height: 20px;
+            color: #ec4899;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .close-btn i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .notification-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .notification-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .notification-item.unread {
+            background: rgba(236, 72, 153, 0.1);
+            border-left: 3px solid #ec4899;
+        }
+
+        .notification-item.read {
+            opacity: 0.7;
+        }
+
+        .notification-item.priority_escalation {
+            background: rgba(239, 68, 68, 0.15);
+            border-left: 3px solid #ef4444;
+        }
+
+        .notification-icon {
+            font-size: 1.5rem;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .notification-message {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .notification-time {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.75rem;
+            margin-top: 6px;
+        }
+
+        .mark-read-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .mark-read-btn:hover {
+            background: #22c55e;
+        }
+
+        .notification-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .leave-reason {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
 
@@ -531,9 +851,12 @@
                         employee leave requests</p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <button class="icon-btn" onclick="UI.showToast('No new notifications', 'info')">
-                        <i data-lucide="bell"></i>
-                    </button>
+                    <div class="notification-wrapper">
+                        <button class="icon-btn" onclick="showNotifications()">
+                            <i data-lucide="bell"></i>
+                        </button>
+                        <span class="notification-count" id="notificationCount" style="display: none;">0</span>
+                    </div>
                     <div class="user-profile-btn" onclick="UI.showToast('Profile page coming soon', 'info')">
                         <div class="user-avatar-circle" id="userAvatar">H</div>
                         <span class="user-name-text" id="userName">HR Manager</span>
@@ -541,10 +864,37 @@
                 </div>
             </header>
 
+            <!-- Priority Requests Banner -->
+            <div class="priority-banner" id="priorityBanner">
+                <div class="priority-banner-header">
+                    <div class="priority-banner-title">
+                        <i data-lucide="alert-triangle"></i>
+                        <span>Priority Leave Requests Require Attention</span>
+                    </div>
+                    <div class="priority-banner-stats">
+                        <div class="priority-stat red">
+                            <span>🔴</span>
+                            <span class="priority-stat-count" id="redCount">0</span>
+                            <span>Urgent</span>
+                        </div>
+                        <div class="priority-stat yellow">
+                            <span>🟡</span>
+                            <span class="priority-stat-count" id="yellowCount">0</span>
+                            <span>Priority</span>
+                        </div>
+                    </div>
+                </div>
+                <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin: 0;">
+                    <strong>Red badges:</strong> Emergency - will auto-process in 24hrs if not addressed. 
+                    <strong>Yellow badges:</strong> Non-urgent priority requests.
+                </p>
+            </div>
+
             <!-- Filter Tabs -->
             <div class="filter-tabs">
                 <button class="filter-tab active" onclick="filterLeaves('all')">All Requests</button>
                 <button class="filter-tab" onclick="filterLeaves('pending')">Pending</button>
+                <button class="filter-tab" onclick="filterLeaves('priority')">🔴 Priority</button>
                 <button class="filter-tab" onclick="filterLeaves('approved')">Approved</button>
                 <button class="filter-tab" onclick="filterLeaves('rejected')">Rejected</button>
             </div>
@@ -565,6 +915,8 @@
         lucide.createIcons();
 
         let allLeaves = [];
+        let priorityRequests = [];
+        let hrNotifications = [];
         let currentFilter = 'all';
 
         async function init() {
@@ -584,7 +936,18 @@
             document.getElementById('userName').innerText = user.name;
             document.getElementById('userAvatar').innerText = user.name.charAt(0).toUpperCase();
 
-            loadLeaves();
+            // Load all data in parallel
+            await Promise.all([
+                loadLeaves(),
+                loadPriorityRequests(),
+                loadHRNotifications()
+            ]);
+            
+            // Set up periodic refresh for priority data
+            setInterval(() => {
+                loadPriorityRequests();
+                loadHRNotifications();
+            }, 60000); // Refresh every minute
         }
 
         async function loadLeaves() {
@@ -605,18 +968,105 @@
             }
         }
 
+        async function loadPriorityRequests() {
+            try {
+                const response = await API.get('/ai-leave-mode/hr/priority-requests');
+                priorityRequests = response.requests || [];
+                updatePriorityBanner();
+            } catch (error) {
+                console.error('Error loading priority requests:', error);
+                priorityRequests = [];
+            }
+        }
+
+        async function loadHRNotifications() {
+            try {
+                const response = await API.get('/ai-leave-mode/hr/notifications');
+                hrNotifications = response.notifications || [];
+                updateNotificationCount();
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                hrNotifications = [];
+            }
+        }
+
+        function updatePriorityBanner() {
+            const banner = document.getElementById('priorityBanner');
+            const redCount = priorityRequests.filter(p => p.priority_level === 'red').length;
+            const yellowCount = priorityRequests.filter(p => p.priority_level === 'yellow').length;
+            
+            document.getElementById('redCount').textContent = redCount;
+            document.getElementById('yellowCount').textContent = yellowCount;
+            
+            if (redCount > 0 || yellowCount > 0) {
+                banner.style.display = 'block';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+
+        function updateNotificationCount() {
+            const countEl = document.getElementById('notificationCount');
+            const unreadCount = hrNotifications.filter(n => !n.is_read).length;
+            
+            if (unreadCount > 0) {
+                countEl.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                countEl.style.display = 'flex';
+            } else {
+                countEl.style.display = 'none';
+            }
+        }
+
+        function getPriorityBadge(requestId) {
+            const priority = priorityRequests.find(p => p.request_id === requestId);
+            if (priority) {
+                const level = priority.priority_level;
+                const emoji = level === 'red' ? '🔴' : '🟡';
+                const label = level === 'red' ? 'EMERGENCY' : 'PRIORITY';
+                const timeLeft = getTimeLeftForEscalation(priority);
+                return `<span class="priority-badge ${level}" title="${timeLeft}">${emoji} ${label}</span>`;
+            }
+            return '';
+        }
+
+        function getTimeLeftForEscalation(priority) {
+            if (priority.priority_level !== 'red') return 'Non-urgent priority request';
+            
+            const setAt = new Date(priority.set_at);
+            const escalationTime = new Date(setAt.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
+            const now = new Date();
+            const diff = escalationTime - now;
+            
+            if (diff <= 0) return 'Escalation pending';
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            return `Auto-escalation in ${hours}h ${minutes}m`;
+        }
+
         function renderLeaves() {
             const container = document.getElementById('leavesGrid');
 
-            const filtered = currentFilter === 'all'
-                ? allLeaves
-                : allLeaves.filter(l => l.status.toLowerCase() === currentFilter);
+            let filtered = [];
+            if (currentFilter === 'all') {
+                filtered = allLeaves;
+            } else if (currentFilter === 'priority') {
+                // Show only leaves with priority badges
+                const priorityIds = priorityRequests.map(p => p.request_id);
+                filtered = allLeaves.filter(l => priorityIds.includes(l.request_id));
+            } else {
+                filtered = allLeaves.filter(l => l.status.toLowerCase() === currentFilter);
+            }
 
             if (filtered.length === 0) {
+                const message = currentFilter === 'priority' 
+                    ? 'No priority requests at this time'
+                    : `No ${currentFilter} requests found`;
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon"><i data-lucide="check-circle"></i></div>
-                        <div class="empty-title">No ${currentFilter} requests found</div>
+                        <div class="empty-title">${message}</div>
                         <div class="empty-desc">All caught up!</div>
                     </div>
                 `;
@@ -624,12 +1074,37 @@
                 return;
             }
 
+            // Sort: priority requests first, then by date
+            const priorityIds = new Set(priorityRequests.map(p => p.request_id));
+            const redIds = new Set(priorityRequests.filter(p => p.priority_level === 'red').map(p => p.request_id));
+            
+            filtered.sort((a, b) => {
+                // Red priority first
+                const aIsRed = redIds.has(a.request_id);
+                const bIsRed = redIds.has(b.request_id);
+                if (aIsRed && !bIsRed) return -1;
+                if (!aIsRed && bIsRed) return 1;
+                
+                // Yellow priority second
+                const aHasPriority = priorityIds.has(a.request_id);
+                const bHasPriority = priorityIds.has(b.request_id);
+                if (aHasPriority && !bHasPriority) return -1;
+                if (!aHasPriority && bHasPriority) return 1;
+                
+                // Then by date (newest first)
+                return new Date(b.created_at || b.start_date) - new Date(a.created_at || a.start_date);
+            });
+
             const html = filtered.map((leave, idx) => {
                 const start = new Date(leave.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const end = new Date(leave.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const dateStr = start === end ? start : `${start} - ${end}`;
                 const userName = leave.employee_name || leave.user_name || 'Employee';
                 const isPending = leave.status.toLowerCase() === 'pending';
+                
+                // Get priority badge if exists
+                const priorityBadgeHtml = getPriorityBadge(leave.request_id);
+                const hasPriority = priorityBadgeHtml !== '';
                 
                 // Determine display status - AI approved vs HR approved
                 let displayStatus = leave.status;
@@ -648,23 +1123,24 @@
                 }
 
                 return `
-                    <div class="leave-item hover-lift" style="animation-delay: ${idx * 0.03}s;">
+                    <div class="leave-item hover-lift ${hasPriority ? 'has-priority' : ''}" style="animation-delay: ${idx * 0.03}s;" onclick="markAsViewed('${leave.request_id}')">
                         <div class="leave-avatar">${userName.charAt(0).toUpperCase()}</div>
                         <div class="leave-info">
-                            <h3>${userName}</h3>
+                            <h3>${userName} ${priorityBadgeHtml}</h3>
                             <div class="leave-type">${leave.leave_type}</div>
                             <div class="leave-dates">
                                 <i data-lucide="calendar"></i>
                                 ${dateStr}
                             </div>
+                            ${leave.reason ? `<div class="leave-reason" style="color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-top: 4px;">${leave.reason.substring(0, 100)}${leave.reason.length > 100 ? '...' : ''}</div>` : ''}
                         </div>
                         <span class="status-badge ${statusClass}">${displayStatus}</span>
                         ${isPending ? `
                             <div class="leave-actions">
-                                <button class="action-btn approve ripple" onclick="handleLeaveAction('${leave.request_id}', 'Approved')" title="Approve">
+                                <button class="action-btn approve ripple" onclick="event.stopPropagation(); handleLeaveAction('${leave.request_id}', 'Approved')" title="Approve">
                                     <i data-lucide="check"></i>
                                 </button>
-                                <button class="action-btn reject ripple" onclick="handleLeaveAction('${leave.request_id}', 'Rejected')" title="Reject">
+                                <button class="action-btn reject ripple" onclick="event.stopPropagation(); handleLeaveAction('${leave.request_id}', 'Rejected')" title="Reject">
                                     <i data-lucide="x"></i>
                                 </button>
                             </div>
@@ -675,6 +1151,15 @@
 
             container.innerHTML = html;
             lucide.createIcons();
+        }
+
+        async function markAsViewed(requestId) {
+            try {
+                await API.post(`/ai-leave-mode/hr/mark-viewed/${requestId}`);
+            } catch (error) {
+                // Silent fail - non-critical
+                console.log('Could not mark as viewed:', error);
+            }
         }
 
         function filterLeaves(filter) {
@@ -688,11 +1173,102 @@
             renderLeaves();
         }
 
+        async function showNotifications() {
+            if (hrNotifications.length === 0) {
+                UI.showToast('No notifications', 'info');
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'notification-modal';
+            modal.innerHTML = `
+                <div class="notification-modal-content">
+                    <div class="notification-modal-header">
+                        <h3><i data-lucide="bell"></i> HR Notifications</h3>
+                        <button class="close-btn" onclick="this.closest('.notification-modal').remove()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="notification-list">
+                        ${hrNotifications.map(n => `
+                            <div class="notification-item ${n.is_read ? 'read' : 'unread'} ${n.notification_type}">
+                                <div class="notification-icon">
+                                    ${n.notification_type === 'priority_escalation' ? '🔴' : 
+                                      n.notification_type === 'new_leave_request' ? '📋' : 
+                                      n.notification_type === 'reminder' ? '⏰' : '📢'}
+                                </div>
+                                <div class="notification-content">
+                                    <div class="notification-title">${n.title}</div>
+                                    <div class="notification-message">${n.message}</div>
+                                    <div class="notification-time">${formatTimeAgo(n.created_at)}</div>
+                                </div>
+                                ${!n.is_read ? `<button class="mark-read-btn" onclick="markNotificationRead(${n.id}, this)">✓</button>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="notification-modal-footer">
+                        <button class="btn-secondary" onclick="markAllNotificationsRead()">Mark All as Read</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            lucide.createIcons();
+        }
+
+        function formatTimeAgo(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            return `${days}d ago`;
+        }
+
+        async function markNotificationRead(notificationId, btn) {
+            try {
+                await API.post(`/ai-leave-mode/hr/notifications/${notificationId}/read`);
+                btn.closest('.notification-item').classList.remove('unread');
+                btn.closest('.notification-item').classList.add('read');
+                btn.remove();
+                loadHRNotifications();
+            } catch (error) {
+                UI.showToast('Failed to mark as read', 'error');
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            try {
+                await API.post('/ai-leave-mode/hr/notifications/read-all');
+                document.querySelectorAll('.notification-item').forEach(item => {
+                    item.classList.remove('unread');
+                    item.classList.add('read');
+                    const btn = item.querySelector('.mark-read-btn');
+                    if (btn) btn.remove();
+                });
+                loadHRNotifications();
+                UI.showToast('All notifications marked as read', 'success');
+            } catch (error) {
+                UI.showToast('Failed to mark all as read', 'error');
+            }
+        }
+
         window.handleLeaveAction = async function (leaveId, status) {
             try {
                 await API.put(`/leaves/${leaveId}/status`, { status });
                 UI.showToast(`Leave request ${status.toLowerCase()} successfully!`, 'success');
-                loadLeaves();
+                
+                // Reload all data
+                await Promise.all([
+                    loadLeaves(),
+                    loadPriorityRequests(),
+                    loadHRNotifications()
+                ]);
             } catch (error) {
                 UI.showToast(error.message || 'Failed to update leave request', 'error');
             }

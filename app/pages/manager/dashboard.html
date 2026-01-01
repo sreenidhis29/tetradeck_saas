@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Dashboard - Company.AI</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .sidebar {
+            width: 260px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid var(--glass-border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            padding: 0 8px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+        }
+        .nav-item {
+            margin-bottom: 4px;
+        }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary);
+        }
+        .nav-link i {
+            width: 20px;
+            height: 20px;
+        }
+        .main-content {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .action-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        .action-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+        .action-card i {
+            width: 32px;
+            height: 32px;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">Company.AI</div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="dashboard.html" class="nav-link active">
+                    <i data-lucide="layout-dashboard"></i>
+                    Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="onboarding.html" class="nav-link">
+                    <i data-lucide="user-plus"></i>
+                    Team Onboarding
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hr/team-calendar.html" class="nav-link">
+                    <i data-lucide="calendar"></i>
+                    Team Calendar
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="../hr/leave-requests.html" class="nav-link">
+                    <i data-lucide="file-text"></i>
+                    Leave Requests
+                </a>
+            </li>
+        </ul>
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--glass-border);">
+            <a href="../../index.html" class="nav-link" onclick="localStorage.clear();">
+                <i data-lucide="log-out"></i>
+                Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Manager Dashboard</h1>
+            <div class="user-info">
+                <span id="userName">Manager</span>
+                <div class="user-avatar" id="userAvatar">M</div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Team Members</h3>
+                <div class="value" id="teamCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Approvals</h3>
+                <div class="value" id="pendingCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Onboarding Progress</h3>
+                <div class="value" id="onboardingProgress">0%</div>
+            </div>
+            <div class="stat-card">
+                <h3>Team Leaves This Week</h3>
+                <div class="value" id="leavesCount">0</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="glass-panel">
+            <h2 style="margin-bottom: 16px;">Quick Actions</h2>
+            <div class="quick-actions">
+                <a href="onboarding.html" class="action-card">
+                    <i data-lucide="user-plus"></i>
+                    <span>View Team Onboarding</span>
+                </a>
+                <a href="../hr/leave-requests.html" class="action-card">
+                    <i data-lucide="check-circle"></i>
+                    <span>Approve Leaves</span>
+                </a>
+                <a href="../hr/team-calendar.html" class="action-card">
+                    <i data-lucide="calendar"></i>
+                    <span>Team Calendar</span>
+                </a>
+                <a href="../employee/profile.html" class="action-card">
+                    <i data-lucide="user"></i>
+                    <span>My Profile</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script src="../../assets/js/api.js"></script>
+    <script>
+        lucide.createIcons();
+
+        // Load user info
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('userName').textContent = user.name || 'Manager';
+        document.getElementById('userAvatar').textContent = (user.name || 'M').charAt(0).toUpperCase();
+
+        // Load dashboard stats
+        async function loadDashboard() {
+            try {
+                // Get onboarding stats
+                const onboardingStats = await API.get('/onboarding/stats');
+                if (onboardingStats.success) {
+                    document.getElementById('onboardingProgress').textContent = 
+                        (onboardingStats.stats?.completion_rate || 0) + '%';
+                    document.getElementById('teamCount').textContent = 
+                        onboardingStats.stats?.total || 0;
+                }
+
+                // Get dashboard stats
+                const dashStats = await API.get('/dashboard/stats');
+                if (dashStats.success) {
+                    document.getElementById('pendingCount').textContent = 
+                        dashStats.stats?.pending_leaves || 0;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>

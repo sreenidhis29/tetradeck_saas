@@ -217,9 +217,14 @@
         let currentPeriod = null;
         let dailyRate = 0;
 
-        // Get auth token
+        // Get auth token - redirect to login if not present
         function getToken() {
-            return localStorage.getItem('token') || 'demo-token-123';
+            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/index.html';
+                return null;
+            }
+            return token;
         }
 
         // API call helper

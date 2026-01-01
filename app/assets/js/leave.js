@@ -5,14 +5,21 @@ window.checkLeaveConstraints = async function (requestText) {
     try {
         console.log('🚀 Sending request for constraint analysis...');
 
-        // Demo: Hardcoded employee ID for testing
-        const employeeId = 'EMP001';
+        // Get token from localStorage
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Not authenticated. Please login.');
+        }
+
+        // Get employee ID from stored user
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const employeeId = user.emp_id || user.employeeId || 'EMP001';
 
         const response = await fetch(`${API_BASE}/leaves/analyze`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer demo-token-123'
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 request: requestText,

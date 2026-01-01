@@ -79,13 +79,33 @@
                 const data = await API.post('/auth/login', { email, password });
 
                 UI.showToast('Login Successful! Redirecting...', 'success');
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data));
+                // Backend returns: { user: { role, ... }, accessToken, refreshToken, ... }
+                // Store both token keys for compatibility
+                const accessToken = data.accessToken || data.token;
+                if (accessToken) {
+                    localStorage.setItem('token', accessToken);
+                    localStorage.setItem('accessToken', accessToken);  // Also store as accessToken
+                } else {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('accessToken');
+                }
+                localStorage.setItem('user', JSON.stringify(data.user || data));
 
                 // Redirect based on role
                 setTimeout(() => {
-                    const role = data.role || 'employee';
-                    window.location.href = `pages/${role}/dashboard.html`;
+                    const rawRole = (data.user && data.user.role) ? data.user.role : data.role;
+
+                    // Map backend roles to existing frontend folders
+                    const roleToFolder = {
+                        admin: 'admin',
+                        hr: 'hr',
+                        hr_manager: 'hr',
+                        manager: 'manager',
+                        employee: 'employee'
+                    };
+
+                    const folder = roleToFolder[rawRole] || 'employee';
+                    window.location.href = `pages/${folder}/dashboard.html`;
                 }, 1000); // Small delay for animation
 
             } catch (error) {

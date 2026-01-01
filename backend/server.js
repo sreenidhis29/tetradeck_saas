@@ -5,7 +5,7 @@ const db = require('./src/config/db');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5005;
 
 // Global error handlers to prevent server crashes
 process.on('uncaughtException', (err) => {
@@ -37,6 +37,7 @@ app.use('/api/onboarding', require('./src/routes/onboarding.routes'));
 app.use('/api/performance', require('./src/routes/performance.routes'));
 app.use('/api/recruitment', require('./src/routes/recruitment.routes'));
 app.use('/api/payroll', require('./src/routes/payroll.routes')); // Payroll Management
+app.use('/api/ai-system', require('./src/routes/ai-system.routes')); // AI System Monitoring
 
 // Enterprise routes with fallback
 try {
@@ -51,6 +52,18 @@ try {
     console.log('✅ Leave Workflow Engine loaded');
 } catch (e) {
     console.error('❌ Workflow routes error:', e.message);
+}
+
+// AI Leave Mode Routes - Toggle between Automatic and Normal mode
+try {
+    app.use('/api/ai-leave-mode', require('./src/routes/ai.leave.mode.routes'));
+    console.log('✅ AI Leave Mode Routes loaded');
+    console.log('   └── Mode Toggle: Automatic/Normal');
+    console.log('   └── Priority Badges: Red/Yellow');
+    console.log('   └── HR Notifications: Enabled');
+    console.log('   └── Auto-Escalation: 24hr for Red badges');
+} catch (e) {
+    console.error('❌ AI Leave Mode routes error:', e.message);
 }
 
 // PRODUCTION Enterprise Routes - EVERYTHING ACTUALLY WORKS
@@ -170,11 +183,23 @@ const server = app.listen(PORT, () => {
     console.log(`   - /api/auth`);
     console.log(`   - /api/leaves (Standard)`);
     console.log(`   - /api/leaves/v2 (Enterprise)`);
+    console.log(`   - /api/ai-leave-mode (AI Mode Control)`);
     console.log(`   - /api/onboarding`);
     console.log(`   - /api/performance`);
     console.log(`   - /api/recruitment`);
     console.log(`   - /api/payroll (Payroll Management)`);
     console.log(`🔗 Integrations: Calendar, Slack, Teams, Email, Payroll`);
+    
+    // Initialize Leave Scheduler for time-based operations
+    // Temporarily disabled for debugging
+    // try {
+    //     const leaveScheduler = require('./src/services/leaveScheduler');
+    //     leaveScheduler.initialize();
+    //     console.log('⏰ Leave Scheduler initialized');
+    // } catch (e) {
+    //     console.log('Leave Scheduler not started:', e.message);
+    // }
+    console.log('⏰ Leave Scheduler: disabled for debugging');
 });
 
 // Keep server reference for graceful shutdown

@@ -105,6 +105,194 @@
             align-items: center;
         }
 
+        /* AI MODE TOGGLE SECTION */
+        .mode-toggle-section {
+            background: linear-gradient(135deg, rgba(0, 20, 0, 0.9), rgba(0, 40, 0, 0.8));
+            border: 2px solid #0f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mode-toggle-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 255, 0, 0.1) 0%, transparent 70%);
+            animation: pulse-glow 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .mode-toggle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-toggle-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        /* The Toggle Switch */
+        .toggle-switch-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .toggle-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .toggle-label.active {
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .toggle-label.inactive {
+            color: rgba(0, 255, 0, 0.4);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 80px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #0f0;
+            border-radius: 40px;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .toggle-slider::before {
+            position: absolute;
+            content: '';
+            height: 28px;
+            width: 28px;
+            left: 4px;
+            bottom: 4px;
+            background: #0f0;
+            border-radius: 50%;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 15px #0f0;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: rgba(255, 165, 0, 0.2);
+            border-color: #ffa500;
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(40px);
+            background: #ffa500;
+            box-shadow: 0 0 15px #ffa500;
+        }
+
+        .mode-description {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-description h4 {
+            margin: 0 0 8px 0;
+            color: #0f0;
+            font-size: 1rem;
+        }
+
+        .mode-description p {
+            margin: 0;
+            color: rgba(0, 255, 0, 0.7);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .mode-description.normal-mode {
+            border-color: rgba(255, 165, 0, 0.3);
+        }
+
+        .mode-description.normal-mode h4 {
+            color: #ffa500;
+        }
+
+        .mode-description.normal-mode p {
+            color: rgba(255, 165, 0, 0.7);
+        }
+
+        .mode-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .mode-feature i {
+            width: 16px;
+            height: 16px;
+        }
+
+        .mode-feature.enabled {
+            color: #10b981;
+        }
+
+        .mode-feature.disabled {
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: line-through;
+        }
+
         /* Control Grid */
         .control-grid {
             display: grid;
@@ -219,6 +407,57 @@
                 </div>
             </div>
 
+            <!-- AI LEAVE MODE TOGGLE SECTION -->
+            <div class="mode-toggle-section" id="modeToggleSection">
+                <div class="mode-toggle-header">
+                    <div class="mode-toggle-title">
+                        <i data-lucide="cpu"></i>
+                        <span>AI LEAVE PROCESSING MODE</span>
+                    </div>
+                    <div class="toggle-switch-container">
+                        <span class="toggle-label" id="autoLabel">AUTOMATIC</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="modeToggle" onchange="toggleAIMode()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label" id="normalLabel">NORMAL</span>
+                    </div>
+                </div>
+                
+                <div class="mode-description" id="modeDescription">
+                    <h4 id="modeTitle">🤖 AUTOMATIC MODE ACTIVE</h4>
+                    <p id="modeText">AI processes ALL leave types. Auto-approves when rules match, escalates to HR/Manager when constraints fail.</p>
+                </div>
+
+                <div class="mode-features">
+                    <div class="mode-feature enabled" id="feature1">
+                        <i data-lucide="check-circle"></i>
+                        <span>Auto-approve all leave types</span>
+                    </div>
+                    <div class="mode-feature enabled" id="feature2">
+                        <i data-lucide="check-circle"></i>
+                        <span>AI constraint checking</span>
+                    </div>
+                    <div class="mode-feature disabled" id="feature3">
+                        <i data-lucide="x-circle"></i>
+                        <span>Priority badge system</span>
+                    </div>
+                    <div class="mode-feature disabled" id="feature4">
+                        <i data-lucide="x-circle"></i>
+                        <span>7hr/24hr escalation timers</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; display: flex; gap: 12px; position: relative; z-index: 1;">
+                    <button class="action-btn" onclick="viewModeHistory()" style="flex: 1;">
+                        <i data-lucide="history"></i> VIEW CHANGE HISTORY
+                    </button>
+                    <button class="action-btn" onclick="testAIMode()" style="flex: 1;">
+                        <i data-lucide="flask-conical"></i> TEST CURRENT MODE
+                    </button>
+                </div>
+            </div>
+
             <div class="control-grid">
                 <!-- Monitor -->
                 <div class="control-card">
@@ -259,7 +498,7 @@
                     </div>
                 </div>
 
-                <!-- Emergency -->
+                <!-- Emergency --> -->
                 <div class="control-card" style="border-color: #f00;">
                     <h3 style="color: #f00; border-color: #f00;"><i data-lucide="siren"></i> EMERGENCY OVERRIDE</h3>
                     <p style="margin-bottom: 20px; color: #f00;">WARNING: This will halt all AI operations immediately.
@@ -275,6 +514,8 @@
     <script src="../../assets/js/api.js"></script>
     <script>
         lucide.createIcons();
+
+        let currentMode = 'automatic';
 
         // Matrix Rain
         const canvas = document.getElementById('matrix-canvas');
@@ -300,7 +541,163 @@
         }
         setInterval(drawMatrix, 33);
 
-        // Command Handler - REAL API CALLS ONLY
+        // =====================================================
+        // AI MODE TOGGLE FUNCTIONALITY
+        // =====================================================
+
+        async function initAIMode() {
+            try {
+                const response = await API.get('/ai-leave-mode/mode');
+                if (response.success) {
+                    currentMode = response.mode;
+                    updateModeUI(currentMode);
+                }
+            } catch (error) {
+                console.error('Failed to fetch AI mode:', error);
+                // Default to automatic
+                updateModeUI('automatic');
+            }
+        }
+
+        function updateModeUI(mode) {
+            const toggle = document.getElementById('modeToggle');
+            const autoLabel = document.getElementById('autoLabel');
+            const normalLabel = document.getElementById('normalLabel');
+            const modeDescription = document.getElementById('modeDescription');
+            const modeTitle = document.getElementById('modeTitle');
+            const modeText = document.getElementById('modeText');
+            const feature1 = document.getElementById('feature1');
+            const feature2 = document.getElementById('feature2');
+            const feature3 = document.getElementById('feature3');
+            const feature4 = document.getElementById('feature4');
+
+            if (mode === 'normal') {
+                toggle.checked = true;
+                autoLabel.classList.remove('active');
+                autoLabel.classList.add('inactive');
+                normalLabel.classList.add('active');
+                normalLabel.classList.remove('inactive');
+                
+                modeDescription.classList.add('normal-mode');
+                modeTitle.innerHTML = '👤 NORMAL MODE ACTIVE';
+                modeText.innerHTML = `AI only auto-approves SICK LEAVE. All other leave types go to HR.<br>
+                    <strong>If HR doesn't respond in 7 hours:</strong> Employee can set priority badge (🟡 Yellow / 🔴 Red).<br>
+                    <strong>If HR doesn't respond in 24 hours (Red badge):</strong> AI re-evaluates and auto-approves if rules match, or escalates to Manager.`;
+                
+                feature1.innerHTML = '<i data-lucide="minus-circle"></i><span>Auto-approve sick leave only</span>';
+                feature1.className = 'mode-feature enabled';
+                feature2.innerHTML = '<i data-lucide="check-circle"></i><span>HR manual review required</span>';
+                feature2.className = 'mode-feature enabled';
+                feature3.innerHTML = '<i data-lucide="check-circle"></i><span>Priority badge system</span>';
+                feature3.className = 'mode-feature enabled';
+                feature4.innerHTML = '<i data-lucide="check-circle"></i><span>7hr/24hr escalation timers</span>';
+                feature4.className = 'mode-feature enabled';
+            } else {
+                toggle.checked = false;
+                autoLabel.classList.add('active');
+                autoLabel.classList.remove('inactive');
+                normalLabel.classList.remove('active');
+                normalLabel.classList.add('inactive');
+                
+                modeDescription.classList.remove('normal-mode');
+                modeTitle.innerHTML = '🤖 AUTOMATIC MODE ACTIVE';
+                modeText.innerHTML = 'AI processes ALL leave types. Auto-approves when rules match, escalates to HR/Manager when constraints fail.';
+                
+                feature1.innerHTML = '<i data-lucide="check-circle"></i><span>Auto-approve all leave types</span>';
+                feature1.className = 'mode-feature enabled';
+                feature2.innerHTML = '<i data-lucide="check-circle"></i><span>AI constraint checking</span>';
+                feature2.className = 'mode-feature enabled';
+                feature3.innerHTML = '<i data-lucide="x-circle"></i><span>Priority badge system</span>';
+                feature3.className = 'mode-feature disabled';
+                feature4.innerHTML = '<i data-lucide="x-circle"></i><span>7hr/24hr escalation timers</span>';
+                feature4.className = 'mode-feature disabled';
+            }
+            
+            lucide.createIcons();
+        }
+
+        async function toggleAIMode() {
+            const toggle = document.getElementById('modeToggle');
+            const newMode = toggle.checked ? 'normal' : 'automatic';
+            
+            const confirmMsg = newMode === 'normal' 
+                ? 'Switch to NORMAL mode?\n\n• AI will only auto-approve sick leave\n• All other leaves go to HR\n• Priority badge system will be enabled'
+                : 'Switch to AUTOMATIC mode?\n\n• AI will process all leave types\n• Auto-approve when rules match\n• Priority badge system will be disabled';
+            
+            if (!confirm(confirmMsg)) {
+                toggle.checked = !toggle.checked;
+                return;
+            }
+
+            try {
+                const response = await API.post('/ai-leave-mode/mode/toggle', {
+                    mode: newMode,
+                    reason: `Admin toggled from ${currentMode} to ${newMode}`
+                });
+
+                if (response.success) {
+                    currentMode = newMode;
+                    updateModeUI(newMode);
+                    alert(`✅ Mode changed to ${newMode.toUpperCase()}\n\n${response.description}`);
+                } else {
+                    throw new Error(response.error || 'Failed to toggle mode');
+                }
+            } catch (error) {
+                console.error('Toggle mode error:', error);
+                alert(`❌ Failed to toggle mode: ${error.message}`);
+                toggle.checked = !toggle.checked;
+            }
+        }
+
+        async function viewModeHistory() {
+            try {
+                const response = await API.get('/ai-leave-mode/mode/history');
+                if (response.success && response.history.length > 0) {
+                    let historyText = 'AI MODE CHANGE HISTORY\n' + '='.repeat(50) + '\n\n';
+                    response.history.slice(0, 10).forEach((entry, idx) => {
+                        const date = new Date(entry.created_at).toLocaleString();
+                        historyText += `${idx + 1}. ${date}\n`;
+                        historyText += `   ${entry.previous_mode} → ${entry.new_mode}\n`;
+                        historyText += `   By: ${entry.changed_by_name}\n`;
+                        if (entry.change_reason) historyText += `   Reason: ${entry.change_reason}\n`;
+                        historyText += '\n';
+                    });
+                    alert(historyText);
+                } else {
+                    alert('No mode change history found.');
+                }
+            } catch (error) {
+                alert(`Error fetching history: ${error.message}`);
+            }
+        }
+
+        async function testAIMode() {
+            try {
+                const response = await API.get('/ai-leave-mode/mode');
+                if (response.success) {
+                    let configText = `CURRENT AI MODE CONFIGURATION\n${'='.repeat(50)}\n\n`;
+                    configText += `Mode: ${response.mode.toUpperCase()}\n\n`;
+                    
+                    if (response.config) {
+                        configText += 'Configuration:\n';
+                        Object.entries(response.config).forEach(([key, val]) => {
+                            configText += `  • ${key}: ${val.value}\n`;
+                        });
+                    }
+                    alert(configText);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        // Initialize on page load
+        initAIMode();
+
+        // =====================================================
+        // ORIGINAL COMMAND HANDLERS
+        // =====================================================
+
         async function runCommand(cmd, port) {
             const logId = cmd === 'MONITOR' ? 'monitor-log' : cmd === 'TRAIN' ? 'train-log' : 'test-log';
             const terminal = document.getElementById(logId);

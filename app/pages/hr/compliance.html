@@ -618,7 +618,7 @@
         
         async function loadComplianceData() {
             try {
-                const response = await API.get('/api/onboarding/all');
+                const response = await API.get('/onboarding/all');
                 if (response.success && response.onboardings) {
                     onboardings = response.onboardings;
                     renderDashboard();

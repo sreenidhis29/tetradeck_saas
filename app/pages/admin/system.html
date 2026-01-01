@@ -580,31 +580,71 @@
                     </div>
                 </div>
 
-                <!-- AI Services -->
+                <!-- AI Services - REAL DATA -->
                 <div class="monitor-panel delay-400">
                     <div class="panel-header">
                         <div class="panel-title">
                             <i data-lucide="cpu"></i>
-                            AI SERVICES
+                            AI LEAVE AGENT
                         </div>
-                        <div class="status-online">ONLINE</div>
+                        <div class="status-online" id="leaveAgentStatus">CHECKING...</div>
                     </div>
                     <div class="metric-row">
-                        <div class="metric-label">NLP Engine</div>
-                        <div class="metric-value" style="color: #00ff41;">ACTIVE</div>
+                        <div class="metric-label">Mode</div>
+                        <div class="metric-value" id="leaveMode" style="color: #ffa500;">--</div>
                     </div>
                     <div class="metric-row">
-                        <div class="metric-label">Vector DB</div>
-                        <div class="metric-value" style="color: #00ff41;">LOADED</div>
-                    </div>
-                    <div class="metric-row">
-                        <div class="metric-label">RAG System</div>
-                        <div class="metric-value" style="color: #00ff41;">READY</div>
+                        <div class="metric-label">Health</div>
+                        <div class="metric-value" id="leaveHealth">--</div>
                     </div>
                     <div class="metric-row">
                         <div class="metric-label">Response Time</div>
-                        <div class="metric-value" id="aiResponse">--</div>
+                        <div class="metric-value" id="leaveResponseTime">--</div>
                     </div>
+                    <div class="metric-row">
+                        <div class="metric-label">Port</div>
+                        <div class="metric-value" id="leavePort">8001</div>
+                    </div>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(0,255,65,0.2);">
+                        <label class="toggle-switch" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <span style="color: #00ff41; font-size: 14px; font-weight: bold;">AUTO MODE:</span>
+                            <div class="switch-container" style="position: relative; width: 60px; height: 30px;">
+                                <input type="checkbox" id="leaveAutoToggle" class="toggle-input" style="opacity: 0; width: 0; height: 0; position: absolute;">
+                                <span class="slider" id="toggleSlider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cc0000; transition: 0.4s; border-radius: 30px; box-shadow: 0 0 15px rgba(255,0,0,0.6);"></span>
+                                <span class="slider-dot" id="toggleDot" style="position: absolute; height: 22px; width: 22px; left: 4px; top: 4px; background-color: white; transition: 0.4s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Agent Logs Section -->
+            <div class="monitor-panel delay-500" style="grid-column: 1 / -1;">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i data-lucide="file-text"></i>
+                        AI AGENT LOGS (REAL-TIME)
+                    </div>
+                    <div class="status-online">LIVE</div>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto; font-family: 'Share Tech Mono', monospace; font-size: 12px;">
+                    <div id="aiLogs" style="color: #00ff41;">
+                        Loading logs...
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Decisions Stats -->
+            <div class="monitor-panel delay-500" style="grid-column: 1 / -1;">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <i data-lucide="brain"></i>
+                        AI LEAVE DECISIONS (LAST 24 HOURS)
+                    </div>
+                    <div class="status-online">STATS</div>
+                </div>
+                <div id="aiDecisionStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 8px 0;">
+                    <!-- Stats will be loaded here -->
                 </div>
             </div>
 
@@ -740,9 +780,6 @@
             document.getElementById('latencyBar').style.width = '15%';
             document.getElementById('lossBar').style.width = '0%';
 
-            // AI
-            document.getElementById('aiResponse').textContent = Math.floor(Math.random() * 100 + 200) + ' ms';
-
             // Update CPU graph
             cpuData.shift();
             cpuData.push(cpu);
@@ -751,6 +788,164 @@
 
         updateMetrics();
         setInterval(updateMetrics, 2000);
+
+        // ==================== REAL AI MONITORING ====================
+        async function loadAIStatus() {
+            try {
+                const response = await API.get('/ai-system/status');
+                const leaveAgent = response.agents ? response.agents.find(a => a.type === 'leave') : null;
+                
+                if (leaveAgent) {
+                    const statusEl = document.getElementById('leaveAgentStatus');
+                    statusEl.textContent = leaveAgent.status.toUpperCase();
+                    statusEl.className = leaveAgent.status === 'online' ? 'status-online' : 'status-offline';
+                    statusEl.style.color = leaveAgent.status === 'online' ? '#00ff41' : '#ff4444';
+                    
+                    document.getElementById('leaveMode').textContent = leaveAgent.mode.toUpperCase();
+                    document.getElementById('leaveMode').style.color = leaveAgent.mode === 'auto' ? '#00ff41' : '#ffaa00';
+                    document.getElementById('leaveHealth').textContent = leaveAgent.health || 'Unknown';
+                    document.getElementById('leaveResponseTime').textContent = 
+                        leaveAgent.response_time ? leaveAgent.response_time + ' ms' : 'N/A';
+                    document.getElementById('leavePort').textContent = leaveAgent.port;
+                    
+                    // Set toggle to match current mode
+                    const toggle = document.getElementById('leaveAutoToggle');
+                    if (toggle) {
+                        toggle.checked = leaveAgent.mode === 'auto';
+                        updateToggleUI(leaveAgent.mode === 'auto');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load AI status:', error);
+                document.getElementById('leaveAgentStatus').textContent = 'ERROR';
+                document.getElementById('leaveAgentStatus').style.color = '#ff4444';
+            }
+        }
+
+        async function loadAILogs() {
+            try {
+                const logs = await API.get('/ai-system/logs?agent_type=leave&limit=50');
+                const logsContainer = document.getElementById('aiLogs');
+                
+                if (!logs || logs.length === 0) {
+                    logsContainer.innerHTML = '<div style="color: #888; padding: 20px; text-align: center;">No logs available</div>';
+                    return;
+                }
+                
+                logsContainer.innerHTML = logs.map(log => `
+                    <div style="padding: 8px; border-bottom: 1px solid rgba(0,255,65,0.1); font-size: 13px;">
+                        <span style="color: ${log.level === 'error' ? '#ff4444' : log.level === 'warning' ? '#ffaa00' : '#00ff41'};">
+                            [${log.level.toUpperCase()}]
+                        </span>
+                        <span style="color: #666; margin: 0 8px;">${new Date(log.created_at).toLocaleString()}</span>
+                        <span style="color: #00ff41;">${log.message}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load AI logs:', error);
+                document.getElementById('aiLogs').innerHTML = 
+                    '<div style="color: #ff4444; padding: 20px;">Failed to load logs</div>';
+            }
+        }
+
+        async function loadAIDecisions() {
+            try {
+                const decisions = await API.get('/ai-system/decisions?limit=10');
+                const decisionsContainer = document.getElementById('aiDecisionStats');
+                
+                if (!decisions || decisions.length === 0) {
+                    decisionsContainer.innerHTML = '<div style="color: #888; padding: 20px; text-align: center;">No recent decisions</div>';
+                    return;
+                }
+                
+                const approvedCount = decisions.filter(d => d.decision === 'approved').length;
+                const rejectedCount = decisions.filter(d => d.decision === 'rejected').length;
+                const avgConfidence = (decisions.reduce((sum, d) => sum + parseFloat(d.confidence || 0), 0) / decisions.length).toFixed(1);
+                
+                decisionsContainer.innerHTML = `
+                    <div style="background: rgba(0,255,65,0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,65,0.3); text-align: center;">
+                        <div style="font-size: 28px; font-weight: bold; color: #00ff41;">${approvedCount}</div>
+                        <div style="font-size: 12px; color: #888;">Approved</div>
+                    </div>
+                    <div style="background: rgba(255,0,0,0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,0,0,0.3); text-align: center;">
+                        <div style="font-size: 28px; font-weight: bold; color: #ff4444;">${rejectedCount}</div>
+                        <div style="font-size: 12px; color: #888;">Rejected</div>
+                    </div>
+                    <div style="background: rgba(0,170,255,0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,170,255,0.3); text-align: center;">
+                        <div style="font-size: 28px; font-weight: bold; color: #00aaff;">${avgConfidence}%</div>
+                        <div style="font-size: 12px; color: #888;">Avg Confidence</div>
+                    </div>
+                    <div style="background: rgba(255,170,0,0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,170,0,0.3); text-align: center;">
+                        <div style="font-size: 28px; font-weight: bold; color: #ffaa00;">${decisions.length}</div>
+                        <div style="font-size: 12px; color: #888;">Total Decisions</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Failed to load AI decisions:', error);
+                document.getElementById('aiDecisionStats').innerHTML = 
+                    '<div style="color: #ff4444; padding: 20px;">Failed to load decisions</div>';
+            }
+        }
+
+        // Update toggle UI based on state
+        function updateToggleUI(isAuto) {
+            const slider = document.getElementById('toggleSlider');
+            const dot = document.getElementById('toggleDot');
+            if (isAuto) {
+                slider.style.backgroundColor = '#00cc00';
+                slider.style.boxShadow = '0 0 15px rgba(0,255,0,0.6)';
+                dot.style.left = '34px';
+            } else {
+                slider.style.backgroundColor = '#cc0000';
+                slider.style.boxShadow = '0 0 15px rgba(255,0,0,0.6)';
+                dot.style.left = '4px';
+            }
+        }
+
+        // Toggle leave agent mode
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggle = document.getElementById('leaveAutoToggle');
+            if (toggle) {
+                toggle.addEventListener('change', async (e) => {
+                    const newMode = e.target.checked ? 'auto' : 'manual';
+                    const modeLabel = document.getElementById('leaveMode');
+                    const prevMode = modeLabel.textContent;
+                    
+                    // Update UI immediately for responsiveness
+                    modeLabel.textContent = newMode.toUpperCase();
+                    updateToggleUI(e.target.checked);
+                    
+                    try {
+                        const response = await API.post('/ai-system/toggle-mode', {
+                            agent_type: 'leave',
+                            mode: newMode
+                        });
+                        
+                        if (response.success) {
+                            UI.showToast(`Leave agent switched to ${newMode.toUpperCase()} mode`, 'success');
+                            // Reload logs after mode change to show the log entry
+                            setTimeout(loadAILogs, 500);
+                        } else {
+                            throw new Error(response.error || 'Unknown error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to toggle mode:', error);
+                        UI.showToast('Failed to change mode: ' + (error.message || 'Server error'), 'error');
+                        // Revert on failure
+                        e.target.checked = !e.target.checked;
+                        modeLabel.textContent = prevMode;
+                        updateToggleUI(!e.target.checked);
+                    }
+                });
+            }
+        });
+
+        // Auto-refresh AI data every 5 seconds
+        setInterval(() => {
+            loadAIStatus();
+            loadAILogs();
+            loadAIDecisions();
+        }, 5000);
 
         async function init() {
             const userStr = localStorage.getItem('user');
@@ -768,6 +963,11 @@
 
             document.getElementById('userName').innerText = user.name;
             document.getElementById('userAvatar').innerText = user.name.charAt(0).toUpperCase();
+            
+            // Load real AI data on page load
+            loadAIStatus();
+            loadAILogs();
+            loadAIDecisions();
         }
 
         document.getElementById('logoutBtn').onclick = () => {

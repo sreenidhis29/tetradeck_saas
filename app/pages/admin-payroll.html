@@ -277,21 +277,12 @@
 
         function getToken() {
             // Check localStorage for real token first
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
             if (token) return token;
             
-            // Check user role
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    if (user.role === 'admin') return 'admin-demo-token';
-                    if (user.role === 'hr') return 'hr-demo-token';
-                } catch(e) {}
-            }
-            
-            // Admin page defaults to admin token for testing
-            return 'admin-demo-token';
+            // No token - redirect to login
+            window.location.href = '/index.html';
+            return null;
         }
 
         async function apiCall(endpoint, options = {}) {

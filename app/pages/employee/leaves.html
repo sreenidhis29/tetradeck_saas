@@ -469,6 +469,260 @@
             font-weight: 500;
             font-size: 0.95rem;
         }
+
+        /* Priority Badge Styles */
+        .priority-eligible {
+            border: 1px solid rgba(245, 158, 11, 0.5) !important;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 15, 35, 0.95) 100%) !important;
+        }
+
+        .priority-badge-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .priority-badge-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #f59e0b;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .priority-badge-header i {
+            width: 16px;
+            height: 16px;
+        }
+
+        .priority-badge-options {
+            display: flex;
+            gap: 10px;
+        }
+
+        .priority-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .priority-btn.red {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .priority-btn.red:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            transform: scale(1.02);
+        }
+
+        .priority-btn.yellow {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .priority-btn.yellow:hover {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+            transform: scale(1.02);
+        }
+
+        .priority-set-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .priority-set-badge.red {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .priority-set-badge.yellow {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .priority-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        .priority-info i {
+            width: 12px;
+            height: 12px;
+        }
+
+        .eligibility-timer {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .eligibility-timer i {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Priority Modal */
+        .priority-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .priority-modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 480px;
+            padding: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .priority-modal-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .priority-modal-header h3 {
+            color: white;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .priority-modal-header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+        }
+
+        .priority-option {
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .priority-option.red-option {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .priority-option.red-option:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            transform: scale(1.02);
+        }
+
+        .priority-option.yellow-option {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .priority-option.yellow-option:hover {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+            transform: scale(1.02);
+        }
+
+        .priority-option-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .priority-option-icon {
+            font-size: 2rem;
+        }
+
+        .priority-option-title {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .priority-option-desc {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .priority-modal-footer {
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .cancel-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 32px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
     </style>
 </head>
 
@@ -568,6 +822,7 @@
         lucide.createIcons();
 
         let allLeaves = [];
+        let priorityEligibility = {};
         let currentFilter = 'all';
 
         async function init() {
@@ -580,13 +835,17 @@
             document.getElementById('userName').innerText = user.name;
             document.getElementById('userAvatar').innerText = user.name.charAt(0).toUpperCase();
 
-            loadLeaves();
+            await loadLeaves();
+            
+            // Refresh priority data every minute
+            setInterval(loadPriorityStatus, 60000);
         }
 
         async function loadLeaves() {
             try {
                 const response = await API.get('/leaves/my-leaves');
                 allLeaves = response.leaves || response || [];
+                await loadPriorityStatus();
                 renderLeaves();
             } catch (e) {
                 console.error('Failed to load leaves:', e);
@@ -600,6 +859,174 @@
                     </div>
                 `;
                 lucide.createIcons();
+            }
+        }
+
+        async function loadPriorityStatus() {
+            // Load priority eligibility for all pending leaves
+            const pendingLeaves = allLeaves.filter(l => l.status.toLowerCase() === 'pending');
+            
+            for (const leave of pendingLeaves) {
+                try {
+                    const response = await API.get(`/ai-leave-mode/priority/eligible/${leave.request_id}`);
+                    priorityEligibility[leave.request_id] = response;
+                } catch (e) {
+                    console.log(`Could not check priority for ${leave.request_id}:`, e);
+                    priorityEligibility[leave.request_id] = { can_set_priority: false };
+                }
+            }
+        }
+
+        function getPriorityUI(leave) {
+            const eligibility = priorityEligibility[leave.request_id];
+            
+            if (!eligibility) return '';
+            
+            // If priority already set
+            if (eligibility.current_priority) {
+                const level = eligibility.current_priority;
+                const emoji = level === 'red' ? '🔴' : '🟡';
+                const label = level === 'red' ? 'EMERGENCY' : 'PRIORITY';
+                const escalationInfo = level === 'red' ? getEscalationTimeLeft(eligibility) : 'HR will be reminded periodically';
+                
+                return `
+                    <div class="priority-badge-container">
+                        <div class="priority-set-badge ${level}">
+                            <span>${emoji}</span>
+                            <span>${label} Badge Set</span>
+                        </div>
+                        <div class="priority-info">
+                            <i data-lucide="info"></i>
+                            <span>${escalationInfo}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // If eligible to set priority
+            if (eligibility.can_set_priority) {
+                return `
+                    <div class="priority-badge-container">
+                        <div class="priority-badge-header">
+                            <i data-lucide="alert-triangle"></i>
+                            <span>HR hasn't responded yet. Set a priority badge:</span>
+                        </div>
+                        <div class="priority-badge-options">
+                            <button class="priority-btn red" onclick="event.stopPropagation(); showPriorityModal('${leave.request_id}')">
+                                🔴 Emergency
+                            </button>
+                            <button class="priority-btn yellow" onclick="event.stopPropagation(); showPriorityModal('${leave.request_id}')">
+                                🟡 Priority
+                            </button>
+                        </div>
+                        <div class="priority-info">
+                            <i data-lucide="info"></i>
+                            <span>Red: Emergency (auto-escalates in 24hr). Yellow: Priority reminder to HR.</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // If waiting for eligibility
+            if (eligibility.time_until_eligible) {
+                const hours = Math.floor(eligibility.time_until_eligible / 3600);
+                const minutes = Math.floor((eligibility.time_until_eligible % 3600) / 60);
+                return `
+                    <div class="eligibility-timer">
+                        <i data-lucide="clock"></i>
+                        <span>Priority badge available in ${hours}h ${minutes}m if HR doesn't respond</span>
+                    </div>
+                `;
+            }
+            
+            return '';
+        }
+
+        function getEscalationTimeLeft(eligibility) {
+            if (!eligibility.priority_set_at) return 'Auto-escalation pending';
+            
+            const setAt = new Date(eligibility.priority_set_at);
+            const escalationTime = new Date(setAt.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
+            const now = new Date();
+            const diff = escalationTime - now;
+            
+            if (diff <= 0) return 'Auto-escalation processing';
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            return `Will auto-process in ${hours}h ${minutes}m if HR doesn't respond`;
+        }
+
+        function showPriorityModal(requestId) {
+            const modal = document.createElement('div');
+            modal.className = 'priority-modal';
+            modal.id = 'priorityModal';
+            modal.innerHTML = `
+                <div class="priority-modal-content">
+                    <div class="priority-modal-header">
+                        <h3>🚨 Set Priority Badge</h3>
+                        <p>Choose a priority level for your leave request</p>
+                    </div>
+                    
+                    <div class="priority-option red-option" onclick="setPriority('${requestId}', 'red')">
+                        <div class="priority-option-header">
+                            <span class="priority-option-icon">🔴</span>
+                            <span class="priority-option-title">Emergency Response Needed</span>
+                        </div>
+                        <div class="priority-option-desc">
+                            For urgent situations requiring immediate attention. If HR doesn't respond within 24 hours, 
+                            the system will automatically evaluate your request and either approve it (if all rules match) 
+                            or escalate to your manager.
+                        </div>
+                    </div>
+                    
+                    <div class="priority-option yellow-option" onclick="setPriority('${requestId}', 'yellow')">
+                        <div class="priority-option-header">
+                            <span class="priority-option-icon">🟡</span>
+                            <span class="priority-option-title">Priority - Non-Emergency</span>
+                        </div>
+                        <div class="priority-option-desc">
+                            For important but non-urgent requests. HR will receive periodic reminders about your 
+                            request. This does not trigger automatic approval or escalation.
+                        </div>
+                    </div>
+                    
+                    <div class="priority-modal-footer">
+                        <button class="cancel-btn" onclick="closePriorityModal()">Cancel</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function closePriorityModal() {
+            const modal = document.getElementById('priorityModal');
+            if (modal) modal.remove();
+        }
+
+        async function setPriority(requestId, level) {
+            closePriorityModal();
+            
+            try {
+                const response = await API.post('/ai-leave-mode/priority/set', {
+                    request_id: requestId,
+                    priority_level: level,
+                    reason: level === 'red' ? 'Employee marked as emergency' : 'Employee marked as priority'
+                });
+                
+                if (response.success) {
+                    const levelLabel = level === 'red' ? 'Emergency' : 'Priority';
+                    UI.showToast(`✅ ${levelLabel} badge set successfully!`, 'success');
+                    
+                    // Reload data
+                    await loadLeaves();
+                } else {
+                    UI.showToast('❌ ' + (response.error || 'Failed to set priority'), 'error');
+                }
+            } catch (error) {
+                UI.showToast('❌ Failed to set priority badge', 'error');
+                console.error('Priority set error:', error);
             }
         }
 
@@ -663,9 +1090,13 @@
                 }
 
                 const iconName = statusLower === 'pending' ? 'clock' : statusLower === 'approved' ? 'check-circle' : 'x-circle';
+                
+                // Check if eligible for priority badge
+                const priorityUI = statusLower === 'pending' ? getPriorityUI(leave) : '';
+                const hasPriorityEligible = priorityEligibility[leave.request_id]?.can_set_priority;
 
                 return `
-                    <div class="leave-card hover-lift" style="animation-delay: ${idx * 0.05}s;">
+                    <div class="leave-card hover-lift ${hasPriorityEligible ? 'priority-eligible' : ''}" style="animation-delay: ${idx * 0.05}s;">
                         <div class="leave-icon animate-float">
                             <i data-lucide="${iconName}"></i>
                         </div>
@@ -676,6 +1107,7 @@
                                 ${dateStr}
                             </div>
                             ${leave.reason ? `<div class="leave-reason">${leave.reason}</div>` : ''}
+                            ${priorityUI}
                         </div>
                         <div class="leave-meta">
                             <span class="status-badge ${statusClass}">${displayStatus}</span>

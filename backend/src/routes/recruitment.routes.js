@@ -20,7 +20,7 @@ router.get('/jobs', authenticateToken, async (req, res) => {
                    e.full_name as hiring_manager_name,
                    (SELECT COUNT(*) FROM candidates WHERE job_id = j.job_id) as applicant_count
             FROM job_postings j
-            LEFT JOIN employees e ON j.hiring_manager_id = e.emp_id
+            LEFT JOIN employees e ON j.hiring_manager = e.emp_id
             WHERE 1=1
         `;
         const params = [];
@@ -48,20 +48,20 @@ router.get('/jobs', authenticateToken, async (req, res) => {
  * Create a new job posting
  */
 router.post('/jobs', authenticateToken, async (req, res) => {
-    const { job_title, department, location, employment_type, experience_level,
-            salary_min, salary_max, job_description, requirements, responsibilities,
-            skills_required, hiring_manager_id, positions_available } = req.body;
+    const { job_title, department, location, employment_type, experience_min, experience_max,
+            salary_min, salary_max, job_description, requirements, nice_to_have,
+            skills_required, hiring_manager, headcount } = req.body;
     
     try {
         const [result] = await db.execute(`
             INSERT INTO job_postings 
-            (job_title, department, location, employment_type, experience_level,
-             salary_min, salary_max, job_description, requirements, responsibilities,
-             skills_required, hiring_manager_id, positions_available, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
-        `, [job_title, department, location, employment_type, experience_level,
-            salary_min, salary_max, job_description, requirements, responsibilities,
-            JSON.stringify(skills_required), hiring_manager_id, positions_available]);
+            (job_title, department, location, employment_type, experience_min, experience_max,
+             salary_min, salary_max, job_description, requirements, nice_to_have,
+             skills_required, hiring_manager, headcount, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+        `, [job_title, department, location, employment_type, experience_min || 0, experience_max || 10,
+            salary_min, salary_max, job_description, requirements, nice_to_have,
+            JSON.stringify(skills_required), hiring_manager, headcount || 1]);
         
         res.json({ success: true, job_id: result.insertId, message: 'Job posting created' });
     } catch (error) {

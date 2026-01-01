@@ -1021,8 +1021,8 @@ const runSLAEscalation = async () => {
     console.log('[CRON] Running SLA escalation check...');
     
     try {
-        // Find breached SLAs
-        const [breached] = await db.execute(`
+        // Find breached SLAs - db.execute returns array directly, not wrapped
+        const breached = await db.execute(`
             SELECT lr.*, e.full_name, e.email,
                    m.full_name as approver_name, m.email as approver_email
             FROM leave_requests_enterprise lr
@@ -1033,9 +1033,11 @@ const runSLAEscalation = async () => {
             AND lr.sla_breached = 0
         `);
 
-        console.log(`[CRON] Found ${breached.length} SLA breaches`);
+        // Safely handle result - may be undefined if table doesn't exist
+        const breachedList = Array.isArray(breached) ? breached : [];
+        console.log(`[CRON] Found ${breachedList.length} SLA breaches`);
 
-        for (const request of breached) {
+        for (const request of breachedList) {
             // Mark as breached
             await db.execute(`
                 UPDATE leave_requests_enterprise 
@@ -1044,12 +1046,13 @@ const runSLAEscalation = async () => {
             `, [request.request_id]);
 
             // Get next level approver
-            const [hierarchy] = await db.execute(`
+            const hierarchyResult = await db.execute(`
                 SELECT * FROM approval_hierarchy WHERE emp_id = ? AND is_active = 1
             `, [request.emp_id]);
+            const hierarchy = Array.isArray(hierarchyResult) ? hierarchyResult : [];
 
             let newApprover = null;
-            if (hierarchy.length) {
+            if (hierarchy.length > 0) {
                 const h = hierarchy[0];
                 if (request.current_level === 1 && h.level2_approver) {
                     newApprover = h.level2_approver;
@@ -1102,23 +1105,25 @@ const runLeaveAccrual = async () => {
     
     try {
         // Get monthly accrual policies
-        const [policies] = await db.execute(`
+        const policiesResult = await db.execute(`
             SELECT * FROM country_leave_policies 
             WHERE accrual_type = 'monthly' AND effective_to >= CURDATE()
         `);
+        const policies = Array.isArray(policiesResult) ? policiesResult : [];
 
         for (const policy of policies) {
             const monthlyAccrual = policy.annual_entitlement / 12;
 
             // Get all active employees for this country
-            const [employees] = await db.execute(`
+            const employeesResult = await db.execute(`
                 SELECT emp_id FROM employees 
                 WHERE country_code = ? AND is_active = 1
             `, [policy.country_code]);
+            const employees = Array.isArray(employeesResult) ? employeesResult : [];
 
             for (const emp of employees) {
                 // Update balance
-                const [updateResult] = await db.execute(`
+                await db.execute(`
                     UPDATE leave_balances_v2 
                     SET accrued_to_date = accrued_to_date + ?, last_accrual_date = CURDATE()
                     WHERE emp_id = ? AND leave_type = ? AND year = YEAR(NOW())
@@ -1138,7 +1143,7 @@ const runLeaveAccrual = async () => {
         console.log(`[CRON] Accrual complete for ${policies.length} policies`);
 
     } catch (error) {
-        console.error('[CRON ACCRUAL ERROR]', error);
+        console.error('[CRON ACCRUAL ERROR]', error.message);
     }
 };
 
