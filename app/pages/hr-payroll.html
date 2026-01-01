@@ -1,435 +1,748 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HR Payroll Dashboard | Company HR</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <title>HR Payroll | Company.AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="../../assets/css/animations.css">
     <style>
+        /* Dark Theme Variables & Base */
         :root {
-            --primary: #4361ee;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-pink: #ec4899;
+            --accent-purple: #8b5cf6;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #06b6d4;
         }
-        body { background: #f8fafc; }
-        .navbar { background: linear-gradient(135deg, #059669, #047857); }
-        .card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-        .card-header { background: white; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-        .stat-card { text-align: center; padding: 1.25rem; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; }
-        .stat-label { color: #6b7280; font-size: 0.8rem; }
-        .period-card { border-left: 4px solid var(--primary); }
-        .period-card.open { border-left-color: var(--success); }
-        .period-card.processing { border-left-color: var(--warning); }
-        .period-card.exported { border-left-color: var(--info); }
-        .period-card.closed { border-left-color: #6b7280; }
-        .badge-pending { background: var(--warning); }
-        .badge-approved { background: var(--success); }
-        .badge-rejected { background: var(--danger); }
-        .action-btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-        .table-hover tbody tr:hover { background: #f1f5f9; }
-        .nav-pills .nav-link.active { background: var(--primary); }
-        .bulk-select { width: 18px; height: 18px; }
-        .alert-card { border-radius: 8px; padding: 1rem; }
-        .alert-card.alert-warning { background: #fef3c7; border: 1px solid #fcd34d; }
-        .alert-card.alert-danger { background: #fee2e2; border: 1px solid #fca5a5; }
+
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f172a 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Layout */
+        .main-wrapper {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Premium Sidebar (Matching HR Onboarding) */
+        .premium-sidebar {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(236, 72, 153, 0.2);
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .logo-section {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .logo-text {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hr-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(236, 72, 153, 0.1);
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            border-radius: 50px;
+            color: #ec4899;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(139, 92, 246, 0.1));
+            color: white;
+            border: 1px solid rgba(236, 72, 153, 0.2);
+        }
+
+        /* Main Content */
+        .content-area {
+            padding: 40px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        /* Two Column Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 32px;
+        }
+
+        /* Tabs & Panels */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .custom-tabs {
+            display: flex;
+            gap: 16px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-purple);
+            color: white;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Tables (Glass Style) */
+        .custom-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .custom-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .custom-table td {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 16px;
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        .custom-table tr td:first-child {
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+        }
+
+        .custom-table tr td:last-child {
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+        }
+
+        .custom-table tr:hover td {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        /* Quick Actions */
+        .action-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(4px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ec4899, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Lists */
+        .list-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Modals (Custom) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .custom-modal {
+            background: #1e293b;
+            border: 1px solid var(--border-color);
+            width: 500px;
+            border-radius: 20px;
+            padding: 0;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Toast */
+        .custom-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .custom-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
     </style>
 </head>
+
 <body>
-    <nav class="navbar navbar-dark navbar-expand-lg mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/app/index.html">
-                <i class="bi bi-building"></i> Company HR
-            </a>
-            <div class="navbar-nav ms-auto">
-                <span class="nav-item nav-link text-light">
-                    <i class="bi bi-person-badge"></i> HR Manager
-                </span>
-                <a class="nav-link text-light" href="/app/pages/leave-management.html">
-                    <i class="bi bi-calendar3"></i> Leave
+    <div class="main-wrapper">
+        <!-- Sidebar -->
+        <aside class="premium-sidebar">
+            <div class="logo-section">
+                <div class="logo-text">Company.AI</div>
+                <div class="hr-badge">HR Panel</div>
+            </div>
+            <nav style="display: flex; flex-direction: column; gap: 8px;">
+                <a href="hr/dashboard.html" class="nav-item">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
                 </a>
+                <a href="hr/employees.html" class="nav-item">
+                    <i data-lucide="users"></i> <span>Employees</span>
+                </a>
+                <a href="hr/onboarding.html" class="nav-item">
+                    <i data-lucide="user-plus"></i> <span>Onboarding</span>
+                </a>
+                <a href="#" class="nav-item active">
+                    <i data-lucide="wallet"></i> <span>Payroll</span>
+                </a>
+                <a href="hr/reports.html" class="nav-item">
+                    <i data-lucide="bar-chart-3"></i> <span>Reports</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content-area">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Payroll Management</h1>
+                    <p class="page-subtitle">Manage periods, salaries, and deductions</p>
+                </div>
             </div>
-        </div>
-    </nav>
 
-    <div class="container-fluid px-4">
-        <div class="row mb-4">
-            <div class="col-12">
-                <h2><i class="bi bi-cash-stack"></i> HR Payroll Dashboard</h2>
-                <p class="text-muted">Manage payroll periods, review deductions, and export for QuickBooks</p>
-            </div>
-        </div>
-
-        <!-- Alert Cards -->
-        <div class="row mb-4" id="alertsRow">
-            <!-- Populated by JS -->
-        </div>
-
-        <!-- Stats Row -->
-        <div class="row mb-4">
-            <div class="col-md-2">
-                <div class="card stat-card">
-                    <div class="stat-value text-warning" id="pendingDeductions">0</div>
+            <!-- Stats Row -->
+            <div class="stats-grid">
+                <div class="stat-card">
                     <div class="stat-label">Pending Deductions</div>
+                    <div class="stat-value" id="pendingDeductions" style="color: var(--warning);">0</div>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card stat-card">
-                    <div class="stat-value text-warning" id="pendingAdditions">0</div>
+                <div class="stat-card">
                     <div class="stat-label">Pending Additions</div>
+                    <div class="stat-value" id="pendingAdditions" style="color: var(--warning);">0</div>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card stat-card">
-                    <div class="stat-value text-danger" id="noSalaryCount">0</div>
+                <div class="stat-card">
                     <div class="stat-label">No Salary Setup</div>
+                    <div class="stat-value" id="noSalaryCount" style="color: var(--danger);">0</div>
                 </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card stat-card">
-                    <div class="stat-value text-info" id="unprocessedLeaves">0</div>
+                <div class="stat-card">
                     <div class="stat-label">Unprocessed Leaves</div>
+                    <div class="stat-value" id="unprocessedLeaves" style="color: var(--accent-pink);">0</div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card stat-card">
-                    <div class="stat-value text-primary" id="currentPeriodName">--</div>
+                <div class="stat-card" style="border-color: var(--accent-purple);">
                     <div class="stat-label">Current Period</div>
-                    <span class="badge bg-success mt-1" id="currentPeriodStatus">--</span>
+                    <div class="stat-value" id="currentPeriodName">--</div>
+                    <span class="stat-badge" id="currentPeriodStatus"
+                        style="background: rgba(139, 92, 246, 0.2); color: var(--accent-purple);">--</span>
                 </div>
             </div>
-        </div>
 
-        <div class="row">
-            <!-- Left Column: Period Management -->
-            <div class="col-lg-8">
-                <!-- Tabs -->
-                <ul class="nav nav-pills mb-3" id="mainTabs">
-                    <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="pill" href="#periodTab">
-                            <i class="bi bi-calendar3"></i> Periods
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="pill" href="#deductionsTab">
-                            <i class="bi bi-dash-circle"></i> Deductions
-                            <span class="badge bg-warning ms-1" id="deductionsBadge">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="pill" href="#additionsTab">
-                            <i class="bi bi-plus-circle"></i> Additions
-                            <span class="badge bg-warning ms-1" id="additionsBadge">0</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="pill" href="#salaryTab">
-                            <i class="bi bi-people"></i> Employee Salaries
-                        </a>
-                    </li>
-                </ul>
+            <div class="dashboard-grid">
+                <!-- Left: Tabs & Tables -->
+                <div class="glass-panel">
+                    <div class="custom-tabs">
+                        <button class="tab-btn active" onclick="switchTab('periodTab', this)">
+                            <i data-lucide="calendar"></i> Periods
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('deductionsTab', this)">
+                            <i data-lucide="minus-circle"></i> Deductions <span id="deductionsBadge"
+                                style="margin-left:5px; opacity:0.7">(0)</span>
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('additionsTab', this)">
+                            <i data-lucide="plus-circle"></i> Additions <span id="additionsBadge"
+                                style="margin-left:5px; opacity:0.7">(0)</span>
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('salaryTab', this)">
+                            <i data-lucide="users"></i> Salaries
+                        </button>
+                    </div>
 
-                <div class="tab-content">
-                    <!-- Periods Tab -->
-                    <div class="tab-pane fade show active" id="periodTab">
-                        <div class="card mb-3">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Payroll Periods</span>
-                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createPeriodModal">
-                                    <i class="bi bi-plus"></i> New Period
-                                </button>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Period</th>
-                                                <th>Dates</th>
-                                                <th>Status</th>
-                                                <th>Deductions</th>
-                                                <th>Additions</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="periodsTable">
-                                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                    <!-- Period Tab -->
+                    <div id="periodTab" class="tab-content active">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+                            <h3 style="margin:0;">Payroll Periods</h3>
+                            <button class="btn-primary" onclick="openModal('createPeriodModal')">+ New Period</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>Period</th>
+                                        <th>Dates</th>
+                                        <th>Status</th>
+                                        <th>Deductions</th>
+                                        <th>Additions</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="periodsTable">
+                                    <tr>
+                                        <td colspan="6">Loading...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
                     <!-- Deductions Tab -->
-                    <div class="tab-pane fade" id="deductionsTab">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Pending Deductions Review</span>
-                                <div>
-                                    <button class="btn btn-success btn-sm me-2" id="bulkApproveDeductions">
-                                        <i class="bi bi-check-all"></i> Approve Selected
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" id="bulkRejectDeductions">
-                                        <i class="bi bi-x-lg"></i> Reject Selected
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th><input type="checkbox" class="bulk-select" id="selectAllDeductions"></th>
-                                                <th>Employee</th>
-                                                <th>Type</th>
-                                                <th>Description</th>
-                                                <th>Days</th>
-                                                <th>Amount</th>
-                                                <th>Status</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="deductionsTable">
-                                            <tr><td colspan="8" class="text-center">Select a period to view deductions</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div id="deductionsTab" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+                            <h3 style="margin:0;">Deductions Review</h3>
+                            <div style="gap:8px; display:flex;">
+                                <button class="btn-primary" style="background: var(--success);"
+                                    id="bulkApproveDeductions">Approve All</button>
+                                <button class="btn-primary" style="background: var(--danger);"
+                                    id="bulkRejectDeductions">Reject All</button>
                             </div>
                         </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllDeductions"></th>
+                                    <th>Employee</th>
+                                    <th>Type</th>
+                                    <th>Reason</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deductionsTable">
+                                <tr>
+                                    <td colspan="7">Select a period...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <!-- Additions Tab -->
-                    <div class="tab-pane fade" id="additionsTab">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Pending Additions Review</span>
-                                <div>
-                                    <button class="btn btn-success btn-sm me-2" id="bulkApproveAdditions">
-                                        <i class="bi bi-check-all"></i> Approve Selected
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" id="bulkRejectAdditions">
-                                        <i class="bi bi-x-lg"></i> Reject Selected
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th><input type="checkbox" class="bulk-select" id="selectAllAdditions"></th>
-                                                <th>Employee</th>
-                                                <th>Type</th>
-                                                <th>Description</th>
-                                                <th>Days</th>
-                                                <th>Amount</th>
-                                                <th>Taxable</th>
-                                                <th>Status</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="additionsTable">
-                                            <tr><td colspan="9" class="text-center">Select a period to view additions</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div id="additionsTab" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+                            <h3 style="margin:0;">Additions Review</h3>
+                            <div style="gap:8px; display:flex;">
+                                <button class="btn-primary" style="background: var(--success);"
+                                    id="bulkApproveAdditions">Approve All</button>
+                                <button class="btn-primary" style="background: var(--danger);"
+                                    id="bulkRejectAdditions">Reject All</button>
                             </div>
                         </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllAdditions"></th>
+                                    <th>Employee</th>
+                                    <th>Type</th>
+                                    <th>Reason</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="additionsTable">
+                                <tr>
+                                    <td colspan="7">Select a period...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <!-- Salaries Tab -->
-                    <div class="tab-pane fade" id="salaryTab">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Employee Salary Management</span>
-                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#setSalaryModal">
-                                    <i class="bi bi-plus"></i> Set Salary
-                                </button>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Employee</th>
-                                                <th>Department</th>
-                                                <th>Base Salary</th>
-                                                <th>Frequency</th>
-                                                <th>Effective From</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="salariesTable">
-                                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                    <div id="salaryTab" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+                            <h3 style="margin:0;">Employee Salaries</h3>
+                            <button class="btn-primary" onclick="openModal('setSalaryModal')">+ Set Salary</button>
+                        </div>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Dept</th>
+                                    <th>Base Salary</th>
+                                    <th>Frequency</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salariesTable">
+                                <tr>
+                                    <td colspan="5">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Quick Actions & Alerts -->
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    <div class="glass-panel">
+                        <h3 style="margin-top:0; margin-bottom: 16px; font-size:1.1rem; color: var(--accent-purple);">⚡
+                            Quick Actions</h3>
+                        <div class="action-btn-group">
+                            <button class="btn-glass" id="processLeavesBtn">
+                                <i data-lucide="refresh-cw"></i> Process Unpaid Leaves
+                            </button>
+                            <button class="btn-glass" id="exportCSVBtn">
+                                <i data-lucide="download"></i> Export to CSV
+                            </button>
+                            <button class="btn-glass" id="markPaidBtn" style="border-left: 3px solid var(--success);">
+                                <i data-lucide="check-circle"></i> Mark as Paid
+                            </button>
+                            <button class="btn-glass" id="closePeriodBtn"
+                                style="border-left: 3px solid var(--text-secondary);">
+                                <i data-lucide="lock"></i> Close Period
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel">
+                        <h3 style="margin-top:0; margin-bottom: 16px; font-size:1.1rem; color: var(--warning);">⚠️
+                            Unprocessed Leaves</h3>
+                        <div id="unprocessedLeavesList">
+                            <div class="list-item">Loading...</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel">
+                        <h3 style="margin-top:0; margin-bottom: 16px; font-size:1.1rem; color: var(--danger);">🚫
+                            Missing Salary</h3>
+                        <div id="noSalaryList">
+                            <div class="list-item">Loading...</div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Right Column: Quick Actions -->
-            <div class="col-lg-4">
-                <!-- Current Period Actions -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-lightning"></i> Quick Actions
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary" id="processLeavesBtn">
-                                <i class="bi bi-arrow-repeat"></i> Process Unpaid Leaves
-                            </button>
-                            <button class="btn btn-outline-success" id="exportCSVBtn">
-                                <i class="bi bi-download"></i> Export to CSV
-                            </button>
-                            <button class="btn btn-outline-info" id="markPaidBtn">
-                                <i class="bi bi-check-circle"></i> Mark as Paid
-                            </button>
-                            <button class="btn btn-outline-secondary" id="closePeriodBtn">
-                                <i class="bi bi-lock"></i> Close Period
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Unprocessed Leaves -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="bi bi-exclamation-triangle text-warning"></i> Unprocessed Leaves
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="list-group list-group-flush" id="unprocessedLeavesList" style="max-height: 300px; overflow-y: auto;">
-                            <div class="list-group-item text-center text-muted">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Employees Without Salary -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-person-x text-danger"></i> Missing Salary Setup
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="list-group list-group-flush" id="noSalaryList" style="max-height: 200px; overflow-y: auto;">
-                            <div class="list-group-item text-center text-muted">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </main>
     </div>
 
     <!-- Create Period Modal -->
-    <div class="modal fade" id="createPeriodModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Payroll Period</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-overlay" id="createPeriodModal">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3 style="margin:0; color: white;">New Payroll Period</h3>
+                <button onclick="closeModal('createPeriodModal')"
+                    style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <label class="form-label">Period Name</label>
+                    <input type="text" class="form-control" id="periodName" placeholder="e.g. January 2026">
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Period Name</label>
-                        <input type="text" class="form-control" id="periodName" placeholder="e.g., December 2024">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <div>
+                        <label class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="periodStart">
                     </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Start Date</label>
-                                <input type="date" class="form-control" id="periodStart">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">End Date</label>
-                                <input type="date" class="form-control" id="periodEnd">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Notes (optional)</label>
-                        <textarea class="form-control" id="periodNotes" rows="2"></textarea>
+                    <div>
+                        <label class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="periodEnd">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="savePeriodBtn">Create Period</button>
+                <div>
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" id="periodNotes" rows="2"></textarea>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" onclick="closeModal('createPeriodModal')">Cancel</button>
+                <button class="btn-primary" id="savePeriodBtn">Create Period</button>
             </div>
         </div>
     </div>
 
     <!-- Set Salary Modal -->
-    <div class="modal fade" id="setSalaryModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Set Employee Salary</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-overlay" id="setSalaryModal">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3 style="margin:0; color: white;">Set Employee Salary</h3>
+                <button onclick="closeModal('setSalaryModal')"
+                    style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <label class="form-label">Employee</label>
+                    <select class="form-control" id="salaryEmpId">
+                        <option value="">Select Employee...</option>
+                    </select>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Employee</label>
-                        <select class="form-select" id="salaryEmpId">
-                            <option value="">Select Employee...</option>
+                <div>
+                    <label class="form-label">Base Salary (INR)</label>
+                    <input type="number" class="form-control" id="salaryAmount" placeholder="50000">
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <div>
+                        <label class="form-label">Frequency</label>
+                        <select class="form-control" id="salaryFrequency">
+                            <option value="monthly">Monthly</option>
+                            <option value="bi-weekly">Bi-Weekly</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Base Salary (Monthly)</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₹</span>
-                            <input type="number" class="form-control" id="salaryAmount" placeholder="50000">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Pay Frequency</label>
-                                <select class="form-select" id="salaryFrequency">
-                                    <option value="monthly">Monthly</option>
-                                    <option value="bi-weekly">Bi-Weekly</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="mb-3">
-                                <label class="form-label">Effective From</label>
-                                <input type="date" class="form-control" id="salaryEffectiveFrom">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Bank Account (Last 4 digits)</label>
-                        <input type="text" class="form-control" id="salaryBank" maxlength="4" placeholder="1234">
+                    <div>
+                        <label class="form-label">Effective From</label>
+                        <input type="date" class="form-control" id="salaryEffectiveFrom">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveSalaryBtn">Save Salary</button>
+                <div>
+                    <label class="form-label">Bank Account (Last 4)</label>
+                    <input type="text" class="form-control" id="salaryBank" maxlength="4">
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-glass" onclick="closeModal('setSalaryModal')">Cancel</button>
+                <button class="btn-primary" id="saveSalaryBtn">Save Salary</button>
             </div>
         </div>
     </div>
 
-    <!-- Toast -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="toast" class="toast" role="alert">
-            <div class="toast-header">
-                <strong class="me-auto" id="toastTitle">Notification</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body" id="toastBody"></div>
-        </div>
+    <!-- Toast Notification -->
+    <div id="toast" class="custom-toast">
+        <strong id="toastTitle" style="display:block; margin-bottom:4px;"></strong>
+        <span id="toastBody"></span>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- No Bootstrap Bundle -->
+
     <script>
         const API_BASE = 'http://localhost:5000/api';
         let currentPeriodId = null;
@@ -437,11 +750,8 @@
         let employees = [];
 
         function getToken() {
-            // Check localStorage for real token first
             const token = localStorage.getItem('token');
             if (token) return token;
-            
-            // Check if user info exists in localStorage
             const userStr = localStorage.getItem('user');
             if (userStr) {
                 try {
@@ -449,21 +759,16 @@
                     if (user.role === 'hr' || user.role === 'admin') {
                         return user.role === 'admin' ? 'admin-demo-token' : 'hr-demo-token';
                     }
-                } catch(e) {}
+                } catch (e) { }
             }
-            
-            // For HR payroll page, default to HR token for testing
             return 'hr-demo-token';
         }
 
         function getCurrentUser() {
             const userStr = localStorage.getItem('user');
             if (userStr) {
-                try {
-                    return JSON.parse(userStr);
-                } catch(e) {}
+                try { return JSON.parse(userStr); } catch (e) { }
             }
-            // Default HR user for testing
             return { name: 'HR Manager', role: 'hr', emp_id: 'EMP002' };
         }
 
@@ -485,50 +790,68 @@
                     }
                 }
                 return data;
-            } catch(error) {
+            } catch (error) {
                 console.error('API Call failed:', error);
                 return { success: false, error: error.message };
             }
         }
 
+        // --- Custom UI Helpers ---
         function showToast(title, message, type = 'info') {
+            const toast = document.getElementById('toast');
             document.getElementById('toastTitle').textContent = title;
             document.getElementById('toastBody').textContent = message;
-            new bootstrap.Toast(document.getElementById('toast')).show();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6';
+            toast.style.borderLeft = `4px solid ${color}`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        window.openModal = function (modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        window.closeModal = function (modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        window.switchTab = function (tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+
+            if (btn) {
+                btn.classList.add('active');
+            } else {
+                const targetBtn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
         }
 
         function formatCurrency(amount) {
             return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(amount || 0);
         }
 
-        // Load HR Dashboard
+        // --- Dashboard Logic ---
         async function loadDashboard() {
             try {
                 const result = await apiCall('/payroll/hr-dashboard');
-                
                 if (result.success) {
-                    // Update stats
                     document.getElementById('pendingDeductions').textContent = result.pending_reviews?.deductions || 0;
                     document.getElementById('pendingAdditions').textContent = result.pending_reviews?.additions || 0;
-                    document.getElementById('deductionsBadge').textContent = result.pending_reviews?.deductions || 0;
-                    document.getElementById('additionsBadge').textContent = result.pending_reviews?.additions || 0;
+                    document.getElementById('deductionsBadge').textContent = `(${result.pending_reviews?.deductions || 0})`;
+                    document.getElementById('additionsBadge').textContent = `(${result.pending_reviews?.additions || 0})`;
                     document.getElementById('noSalaryCount').textContent = result.employees_no_salary?.length || 0;
                     document.getElementById('unprocessedLeaves').textContent = result.unprocessed_leaves?.length || 0;
 
-                    // Current period
                     if (result.current_period) {
                         currentPeriodId = result.current_period.id;
                         document.getElementById('currentPeriodName').textContent = result.current_period.period_name;
                         document.getElementById('currentPeriodStatus').textContent = result.current_period.status;
                     }
 
-                    // Unprocessed leaves
                     displayUnprocessedLeaves(result.unprocessed_leaves || []);
-
-                    // No salary employees
                     displayNoSalaryEmployees(result.employees_no_salary || []);
-
-                    // Load periods
                     loadPeriods();
                 }
             } catch (error) {
@@ -537,7 +860,6 @@
             }
         }
 
-        // Load periods
         async function loadPeriods() {
             try {
                 const result = await apiCall('/payroll/periods');
@@ -550,40 +872,38 @@
             }
         }
 
-        // Display periods table
         function displayPeriods(periods) {
             const tbody = document.getElementById('periodsTable');
-            
             if (!periods || periods.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No payroll periods. Create one to get started.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-secondary);">No payroll periods.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = periods.map(p => {
-                const statusClass = {
-                    'open': 'bg-success',
-                    'processing': 'bg-warning',
-                    'exported': 'bg-info',
-                    'paid': 'bg-primary',
-                    'closed': 'bg-secondary'
-                }[p.status] || 'bg-secondary';
+                const statusColor = {
+                    'open': 'var(--success)',
+                    'processing': 'var(--warning)',
+                    'exported': 'var(--accent-purple)',
+                    'paid': 'var(--accent-pink)',
+                    'closed': 'var(--text-secondary)'
+                }[p.status] || 'gray';
 
                 return `
-                    <tr class="period-card ${p.status}" onclick="selectPeriod(${p.id})" style="cursor:pointer;">
-                        <td><strong>${p.period_name}</strong></td>
+                    <tr onclick="selectPeriod(${p.id})" style="cursor:pointer;">
+                        <td style="font-weight:600;">${p.period_name}</td>
                         <td>${new Date(p.start_date).toLocaleDateString()} - ${new Date(p.end_date).toLocaleDateString()}</td>
-                        <td><span class="badge ${statusClass}">${p.status}</span></td>
+                        <td><span style="color:${statusColor}; border:1px solid ${statusColor}; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${p.status}</span></td>
                         <td>
-                            <span class="text-danger">${formatCurrency(p.total_deductions)}</span>
-                            <small class="text-muted">(${p.deduction_count})</small>
+                            <span style="color:var(--danger);">${formatCurrency(p.total_deductions)}</span>
+                            <small>(${p.deduction_count})</small>
                         </td>
                         <td>
-                            <span class="text-success">${formatCurrency(p.total_additions)}</span>
-                            <small class="text-muted">(${p.addition_count})</small>
+                            <span style="color:var(--success);">${formatCurrency(p.total_additions)}</span>
+                            <small>(${p.addition_count})</small>
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary action-btn" onclick="event.stopPropagation(); viewPeriodDetails(${p.id})">
-                                <i class="bi bi-eye"></i>
+                            <button class="btn-primary" style="padding:4px 8px; font-size:0.8rem;" onclick="event.stopPropagation(); viewPeriodDetails(${p.id})">
+                                View
                             </button>
                         </td>
                     </tr>
@@ -591,7 +911,6 @@
             }).join('');
         }
 
-        // Select period and load its details
         async function selectPeriod(periodId) {
             currentPeriodId = periodId;
             const period = periods.find(p => p.id === periodId);
@@ -603,326 +922,223 @@
             showToast('Period Selected', `Now viewing: ${period?.period_name}`);
         }
 
-        // Load deductions for period
         async function loadDeductions(periodId) {
             try {
                 const result = await apiCall(`/payroll/periods/${periodId}/deductions`);
-                if (result.success) {
-                    displayDeductions(result.deductions);
-                }
-            } catch (error) {
-                console.error('Deductions error:', error);
-            }
+                if (result.success) displayDeductions(result.deductions);
+            } catch (error) { console.error('Deductions error:', error); }
         }
 
-        // Display deductions
         function displayDeductions(deductions) {
             const tbody = document.getElementById('deductionsTable');
-            
             if (!deductions || deductions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No deductions for this period</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No deductions.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = deductions.map(d => {
-                const statusClass = d.status === 'approved' ? 'badge-approved' : d.status === 'rejected' ? 'badge-rejected' : 'badge-pending';
                 const canReview = d.status === 'pending_review';
-                
+                const statusColor = d.status === 'approved' ? 'var(--success)' : d.status === 'rejected' ? 'var(--danger)' : 'var(--warning)';
+
                 return `
                     <tr>
-                        <td><input type="checkbox" class="bulk-select deduction-check" value="${d.id}" ${canReview ? '' : 'disabled'}></td>
+                        <td><input type="checkbox" class="deduction-check" value="${d.id}" ${canReview ? '' : 'disabled'}></td>
                         <td>${d.full_name}</td>
-                        <td><span class="badge bg-secondary">${d.deduction_type}</span></td>
+                        <td><span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${d.deduction_type}</span></td>
                         <td>${d.description}</td>
-                        <td>${d.days}</td>
-                        <td class="text-danger">${formatCurrency(d.amount)}</td>
-                        <td><span class="badge ${statusClass}">${d.status}</span></td>
+                        <td style="color:var(--danger);">${formatCurrency(d.amount)}</td>
+                        <td><span style="color:${statusColor};">${d.status}</span></td>
                         <td>
                             ${canReview ? `
-                                <button class="btn btn-success btn-sm action-btn" onclick="reviewDeduction(${d.id}, 'approved')">
-                                    <i class="bi bi-check"></i>
-                                </button>
-                                <button class="btn btn-danger btn-sm action-btn" onclick="reviewDeduction(${d.id}, 'rejected')">
-                                    <i class="bi bi-x"></i>
-                                </button>
+                                <button onclick="reviewDeduction(${d.id}, 'approved')" style="background:none; border:none; color:var(--success); cursor:pointer;"><i data-lucide="check"></i></button>
+                                <button onclick="reviewDeduction(${d.id}, 'rejected')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i data-lucide="x"></i></button>
                             ` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
+            lucide.createIcons();
         }
 
-        // Load additions for period
         async function loadAdditions(periodId) {
             try {
                 const result = await apiCall(`/payroll/periods/${periodId}/additions`);
-                if (result.success) {
-                    displayAdditions(result.additions);
-                }
-            } catch (error) {
-                console.error('Additions error:', error);
-            }
+                if (result.success) displayAdditions(result.additions);
+            } catch (error) { console.error('Additions error:', error); }
         }
 
-        // Display additions
         function displayAdditions(additions) {
             const tbody = document.getElementById('additionsTable');
-            
             if (!additions || additions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No additions for this period</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No additions.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = additions.map(a => {
-                const statusClass = a.status === 'approved' ? 'badge-approved' : a.status === 'rejected' ? 'badge-rejected' : 'badge-pending';
                 const canReview = a.status === 'pending_review';
-                
+                const statusColor = a.status === 'approved' ? 'var(--success)' : a.status === 'rejected' ? 'var(--danger)' : 'var(--warning)';
+
                 return `
                     <tr>
-                        <td><input type="checkbox" class="bulk-select addition-check" value="${a.id}" ${canReview ? '' : 'disabled'}></td>
+                        <td><input type="checkbox" class="addition-check" value="${a.id}" ${canReview ? '' : 'disabled'}></td>
                         <td>${a.full_name}</td>
-                        <td><span class="badge bg-info">${a.addition_type}</span></td>
+                        <td><span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${a.addition_type}</span></td>
                         <td>${a.description}</td>
-                        <td>${a.days}</td>
-                        <td class="text-success">${formatCurrency(a.amount)}</td>
-                        <td>${a.is_taxable ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle text-muted"></i>'}</td>
-                        <td><span class="badge ${statusClass}">${a.status}</span></td>
+                        <td style="color:var(--success);">${formatCurrency(a.amount)}</td>
+                        <td><span style="color:${statusColor};">${a.status}</span></td>
                         <td>
                             ${canReview ? `
-                                <button class="btn btn-success btn-sm action-btn" onclick="reviewAddition(${a.id}, 'approved')">
-                                    <i class="bi bi-check"></i>
-                                </button>
-                                <button class="btn btn-danger btn-sm action-btn" onclick="reviewAddition(${a.id}, 'rejected')">
-                                    <i class="bi bi-x"></i>
-                                </button>
+                                <button onclick="reviewAddition(${a.id}, 'approved')" style="background:none; border:none; color:var(--success); cursor:pointer;"><i data-lucide="check"></i></button>
+                                <button onclick="reviewAddition(${a.id}, 'rejected')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i data-lucide="x"></i></button>
                             ` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
+            lucide.createIcons();
         }
 
-        // Display unprocessed leaves
         function displayUnprocessedLeaves(leaves) {
             const container = document.getElementById('unprocessedLeavesList');
-            
             if (!leaves || leaves.length === 0) {
-                container.innerHTML = '<div class="list-group-item text-center text-muted">All leaves processed!</div>';
+                container.innerHTML = '<div class="list-item" style="justify-content:center; color:var(--text-secondary);">All leaves processed!</div>';
                 return;
             }
-
             container.innerHTML = leaves.map(l => `
-                <div class="list-group-item">
-                    <div class="d-flex justify-content-between">
+                <div class="list-item">
+                    <div>
                         <strong>${l.full_name}</strong>
-                        <span class="badge bg-warning">${l.leave_type}</span>
+                        <div style="font-size:0.8rem; color:var(--text-secondary);">${new Date(l.start_date).toLocaleDateString()}</div>
                     </div>
-                    <small class="text-muted">${new Date(l.start_date).toLocaleDateString()} - ${new Date(l.end_date).toLocaleDateString()}</small>
+                    <span style="background:rgba(245, 158, 11, 0.2); color:var(--warning); padding:2px 8px; border-radius:4px; font-size:0.8rem;">${l.leave_type}</span>
                 </div>
             `).join('');
         }
 
-        // Display employees without salary
         function displayNoSalaryEmployees(employees) {
             const container = document.getElementById('noSalaryList');
-            
             if (!employees || employees.length === 0) {
-                container.innerHTML = '<div class="list-group-item text-center text-success"><i class="bi bi-check-circle"></i> All employees have salary setup!</div>';
+                container.innerHTML = '<div class="list-item" style="justify-content:center; color:var(--success);">All employees have salary setup!</div>';
                 return;
             }
-
             container.innerHTML = employees.map(e => `
-                <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="list-item">
                     <div>
                         <strong>${e.full_name}</strong>
-                        <br><small class="text-muted">${e.department}</small>
+                        <div style="font-size:0.8rem; color:var(--text-secondary);">${e.department || 'N/A'}</div>
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="openSalaryModal('${e.emp_id}', '${e.full_name}')">
-                        Set Salary
-                    </button>
+                    <button class="btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="openSalaryModal('${e.emp_id}', '${e.full_name}')">Set</button>
                 </div>
             `).join('');
         }
 
-        // Review deduction
+        // --- Actions ---
         async function reviewDeduction(id, status) {
             try {
-                const result = await apiCall(`/payroll/deductions/${id}/review`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status })
-                });
-                if (result.success) {
-                    showToast('Success', `Deduction ${status}`);
-                    loadDeductions(currentPeriodId);
-                    loadDashboard();
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                const result = await apiCall(`/payroll/deductions/${id}/review`, { method: 'PATCH', body: JSON.stringify({ status }) });
+                if (result.success) { showToast('Success', `Deduction ${status}`, 'success'); loadDeductions(currentPeriodId); loadDashboard(); }
+                else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         }
 
-        // Review addition
         async function reviewAddition(id, status) {
             try {
-                const result = await apiCall(`/payroll/additions/${id}/review`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status })
-                });
-                if (result.success) {
-                    showToast('Success', `Addition ${status}`);
-                    loadAdditions(currentPeriodId);
-                    loadDashboard();
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                const result = await apiCall(`/payroll/additions/${id}/review`, { method: 'PATCH', body: JSON.stringify({ status }) });
+                if (result.success) { showToast('Success', `Addition ${status}`, 'success'); loadAdditions(currentPeriodId); loadDashboard(); }
+                else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         }
 
-        // Create period
-        document.getElementById('savePeriodBtn').addEventListener('click', async function() {
+        document.getElementById('savePeriodBtn').addEventListener('click', async function () {
             const data = {
                 period_name: document.getElementById('periodName').value,
                 start_date: document.getElementById('periodStart').value,
                 end_date: document.getElementById('periodEnd').value,
                 notes: document.getElementById('periodNotes').value
             };
-
-            if (!data.period_name || !data.start_date || !data.end_date) {
-                showToast('Error', 'Please fill all required fields');
-                return;
-            }
+            if (!data.period_name || !data.start_date || !data.end_date) { showToast('Error', 'Please fill all required fields', 'error'); return; }
 
             try {
-                const result = await apiCall('/payroll/periods', {
-                    method: 'POST',
-                    body: JSON.stringify(data)
-                });
+                const result = await apiCall('/payroll/periods', { method: 'POST', body: JSON.stringify(data) });
                 if (result.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('createPeriodModal')).hide();
-                    showToast('Success', 'Period created');
-                    loadPeriods();
-                    loadDashboard();
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                    closeModal('createPeriodModal');
+                    showToast('Success', 'Period created', 'success');
+                    loadPeriods(); loadDashboard();
+                } else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         });
 
-        // Process leaves button
-        document.getElementById('processLeavesBtn').addEventListener('click', async function() {
-            if (!currentPeriodId) {
-                showToast('Error', 'Select a period first');
-                return;
-            }
-
+        document.getElementById('processLeavesBtn').addEventListener('click', async function () {
+            if (!currentPeriodId) { showToast('Error', 'Select a period first', 'error'); return; }
             try {
                 const result = await apiCall(`/payroll/periods/${currentPeriodId}/process-leaves`, { method: 'POST' });
-                if (result.success) {
-                    showToast('Success', `Processed ${result.processed_count} leave deductions`);
-                    loadDashboard();
-                    loadDeductions(currentPeriodId);
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                if (result.success) { showToast('Success', `Processed ${result.processed_count} leave deductions`, 'success'); loadDashboard(); loadDeductions(currentPeriodId); }
+                else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         });
 
-        // Export CSV button
-        document.getElementById('exportCSVBtn').addEventListener('click', async function() {
-            if (!currentPeriodId) {
-                showToast('Error', 'Select a period first');
-                return;
-            }
+        document.getElementById('exportCSVBtn').addEventListener('click', function () {
+            if (!currentPeriodId) { showToast('Error', 'Select a period first', 'error'); return; }
             window.open(`${API_BASE}/payroll/periods/${currentPeriodId}/download?token=${getToken()}`, '_blank');
         });
 
-        // Mark as paid button
-        document.getElementById('markPaidBtn').addEventListener('click', async function() {
-            if (!currentPeriodId) {
-                showToast('Error', 'Select a period first');
-                return;
-            }
+        document.getElementById('markPaidBtn').addEventListener('click', async function () {
+            if (!currentPeriodId) { showToast('Error', 'Select a period first', 'error'); return; }
             await updatePeriodStatus('paid');
         });
 
-        // Close period button
-        document.getElementById('closePeriodBtn').addEventListener('click', async function() {
-            if (!currentPeriodId) {
-                showToast('Error', 'Select a period first');
-                return;
-            }
+        document.getElementById('closePeriodBtn').addEventListener('click', async function () {
+            if (!currentPeriodId) { showToast('Error', 'Select a period first', 'error'); return; }
             await updatePeriodStatus('closed');
         });
 
-        // Update period status
         async function updatePeriodStatus(status) {
             try {
-                const result = await apiCall(`/payroll/periods/${currentPeriodId}/status`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status })
-                });
-                if (result.success) {
-                    showToast('Success', `Period marked as ${status}`);
-                    loadPeriods();
-                    loadDashboard();
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                const result = await apiCall(`/payroll/periods/${currentPeriodId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+                if (result.success) { showToast('Success', `Period marked as ${status}`, 'success'); loadPeriods(); loadDashboard(); }
+                else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         }
 
-        // Select all checkboxes
-        document.getElementById('selectAllDeductions').addEventListener('change', function() {
+        // Bulk Actions
+        document.getElementById('selectAllDeductions').addEventListener('change', function () {
             document.querySelectorAll('.deduction-check:not(:disabled)').forEach(cb => cb.checked = this.checked);
         });
-        document.getElementById('selectAllAdditions').addEventListener('change', function() {
+        document.getElementById('selectAllAdditions').addEventListener('change', function () {
             document.querySelectorAll('.addition-check:not(:disabled)').forEach(cb => cb.checked = this.checked);
         });
-
-        // Bulk approve/reject deductions
         document.getElementById('bulkApproveDeductions').addEventListener('click', () => bulkReviewDeductions('approved'));
         document.getElementById('bulkRejectDeductions').addEventListener('click', () => bulkReviewDeductions('rejected'));
+        // Add listeners for Addition bulk actions if they exist in DOM
+        document.getElementById('bulkApproveAdditions').addEventListener('click', () => bulkReviewAdditions('approved'));
+        document.getElementById('bulkRejectAdditions').addEventListener('click', () => bulkReviewAdditions('rejected'));
 
         async function bulkReviewDeductions(action) {
             const ids = Array.from(document.querySelectorAll('.deduction-check:checked')).map(cb => parseInt(cb.value));
-            if (ids.length === 0) {
-                showToast('Error', 'Select deductions first');
-                return;
-            }
-
+            if (ids.length === 0) { showToast('Error', 'Select deductions first', 'error'); return; }
             try {
-                const result = await apiCall('/payroll/deductions/bulk-approve', {
-                    method: 'POST',
-                    body: JSON.stringify({ deduction_ids: ids, action })
-                });
-                if (result.success) {
-                    showToast('Success', `${ids.length} deductions ${action}`);
-                    loadDeductions(currentPeriodId);
-                    loadDashboard();
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                const result = await apiCall('/payroll/deductions/bulk-approve', { method: 'POST', body: JSON.stringify({ deduction_ids: ids, action }) });
+                if (result.success) { showToast('Success', `${ids.length} deductions ${action}`, 'success'); loadDeductions(currentPeriodId); loadDashboard(); }
+            } catch (error) { showToast('Error', error.message, 'error'); }
         }
 
-        // Open salary modal
-        function openSalaryModal(empId, empName) {
+        async function bulkReviewAdditions(action) {
+            const ids = Array.from(document.querySelectorAll('.addition-check:checked')).map(cb => parseInt(cb.value));
+            if (ids.length === 0) { showToast('Error', 'Select additions first', 'error'); return; }
+            // Assuming endpoint exists or reused
+            try {
+                const result = await apiCall('/payroll/additions/bulk-approve', { method: 'POST', body: JSON.stringify({ addition_ids: ids, action }) });
+                if (result.success) { showToast('Success', `${ids.length} additions ${action}`, 'success'); loadAdditions(currentPeriodId); loadDashboard(); }
+            } catch (error) { showToast('Error', error.message, 'error'); }
+        }
+
+        // Salary Management
+        window.openSalaryModal = function (empId, empName) {
             document.getElementById('salaryEmpId').value = empId;
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('setSalaryModal')).show();
+            openModal('setSalaryModal');
         }
 
-        // Save salary
-        document.getElementById('saveSalaryBtn').addEventListener('click', async function() {
+        document.getElementById('saveSalaryBtn').addEventListener('click', async function () {
             const empId = document.getElementById('salaryEmpId').value;
             const data = {
                 base_salary: parseFloat(document.getElementById('salaryAmount').value),
@@ -930,67 +1146,42 @@
                 effective_from: document.getElementById('salaryEffectiveFrom').value,
                 bank_account_last4: document.getElementById('salaryBank').value
             };
-
-            if (!empId || !data.base_salary || !data.effective_from) {
-                showToast('Error', 'Please fill required fields');
-                return;
-            }
+            if (!empId || !data.base_salary || !data.effective_from) { showToast('Error', 'Please fill required fields', 'error'); return; }
 
             try {
-                const result = await apiCall(`/payroll/salary/${empId}`, {
-                    method: 'POST',
-                    body: JSON.stringify(data)
-                });
+                const result = await apiCall(`/payroll/salary/${empId}`, { method: 'POST', body: JSON.stringify(data) });
                 if (result.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('setSalaryModal')).hide();
-                    showToast('Success', 'Salary saved');
-                    loadDashboard();
-                } else {
-                    showToast('Error', result.error);
-                }
-            } catch (error) {
-                showToast('Error', error.message);
-            }
+                    closeModal('setSalaryModal');
+                    showToast('Success', 'Salary saved', 'success');
+                    loadDashboard(); loadSalaries();
+                } else showToast('Error', result.error, 'error');
+            } catch (error) { showToast('Error', error.message, 'error'); }
         });
 
-        // View period details
-        function viewPeriodDetails(periodId) {
+        window.viewPeriodDetails = function (periodId) {
             selectPeriod(periodId);
-            document.querySelector('[href="#deductionsTab"]').click();
+            switchTab('deductionsTab');
         }
 
-        // Load employees for salary dropdown
         async function loadEmployees() {
             try {
                 const result = await apiCall('/employees/all');
                 if (result.success && result.employees) {
                     employees = result.employees;
                     const select = document.getElementById('salaryEmpId');
-                    select.innerHTML = '<option value="">Select Employee...</option>' + 
+                    select.innerHTML = '<option value="">Select Employee...</option>' +
                         employees.map(e => `<option value="${e.emp_id}">${e.full_name} (${e.emp_id})</option>`).join('');
-                    
-                    // Also load and display salaries
                     loadSalaries();
                 }
-            } catch (e) {
-                console.error('Load employees error:', e);
-            }
+            } catch (e) { console.error('Load employees error:', e); }
         }
 
-        // Load all salaries
         async function loadSalaries() {
             try {
                 const result = await apiCall('/payroll/salaries');
-                if (result.success) {
-                    displaySalaries(result.salaries);
-                } else {
-                    // Fallback - show employees without salary setup
-                    displaySalariesFromDashboard();
-                }
-            } catch (e) {
-                console.error('Load salaries error:', e);
-                displaySalariesFromDashboard();
-            }
+                if (result.success) displaySalaries(result.salaries);
+                else displaySalariesFromDashboard(); // Fallback
+            } catch (e) { console.error('Load salaries error:', e); displaySalariesFromDashboard(); }
         }
 
         function displaySalariesFromDashboard() {
@@ -1000,59 +1191,51 @@
                     <tr>
                         <td>${e.full_name}</td>
                         <td>${e.department || 'N/A'}</td>
-                        <td class="text-muted">Not Set</td>
+                        <td style="color:var(--text-secondary);">Not Set</td>
                         <td>-</td>
-                        <td>-</td>
-                        <td>
-                            <button class="btn btn-sm btn-primary" onclick="openSalaryModal('${e.emp_id}', '${e.full_name}')">
-                                <i class="bi bi-plus"></i> Set Salary
-                            </button>
-                        </td>
+                        <td><button class="btn-primary" onclick="openSalaryModal('${e.emp_id}', '${e.full_name}')" style="font-size:0.8rem; padding:4px 8px;">Set Salary</button></td>
                     </tr>
                 `).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No employees found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No employees found</td></tr>';
             }
         }
 
         function displaySalaries(salaries) {
             const tbody = document.getElementById('salariesTable');
-            
-            if (!salaries || salaries.length === 0) {
-                displaySalariesFromDashboard();
-                return;
-            }
+            if (!salaries || salaries.length === 0) { displaySalariesFromDashboard(); return; }
 
             tbody.innerHTML = salaries.map(s => `
                 <tr>
                     <td>${s.full_name}</td>
                     <td>${s.department || 'N/A'}</td>
-                    <td class="text-success fw-bold">${formatCurrency(s.base_salary)}</td>
+                    <td style="color:var(--success); font-weight:bold;">${formatCurrency(s.base_salary)}</td>
                     <td>${s.pay_frequency || 'monthly'}</td>
-                    <td>${s.effective_from ? new Date(s.effective_from).toLocaleDateString() : '-'}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" onclick="openSalaryModal('${s.emp_id}', '${s.full_name}')">
-                            <i class="bi bi-pencil"></i> Edit
+                        <button class="btn-primary" onclick="openSalaryModal('${s.emp_id}', '${s.full_name}')" style="font-size:0.8rem; padding:4px 8px; background:none; border:1px solid var(--accent-purple); color: var(--accent-purple);">
+                            Edit
                         </button>
                     </td>
                 </tr>
             `).join('');
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        // Init
+        document.addEventListener('DOMContentLoaded', function () {
             loadDashboard();
             loadEmployees();
-            
-            // Set default dates for new period
+
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
             const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            document.getElementById('periodStart').value = firstDay.toISOString().split('T')[0];
-            document.getElementById('periodEnd').value = lastDay.toISOString().split('T')[0];
-            document.getElementById('periodName').value = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            document.getElementById('salaryEffectiveFrom').value = today.toISOString().split('T')[0];
+            if (document.getElementById('periodStart')) document.getElementById('periodStart').value = firstDay.toISOString().split('T')[0];
+            if (document.getElementById('periodEnd')) document.getElementById('periodEnd').value = lastDay.toISOString().split('T')[0];
+            if (document.getElementById('periodName')) document.getElementById('periodName').value = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            if (document.getElementById('salaryEffectiveFrom')) document.getElementById('salaryEffectiveFrom').value = today.toISOString().split('T')[0];
+
+            lucide.createIcons();
         });
     </script>
 </body>
+
 </html>
