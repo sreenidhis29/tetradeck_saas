@@ -31,7 +31,7 @@ const PUBLIC_ROUTES = [
  * @returns {boolean} True if public route
  */
 function isPublicRoute(path) {
-    return PUBLIC_ROUTES.some(route => 
+    return PUBLIC_ROUTES.some(route =>
         path === route || path.startsWith(route + '/')
     );
 }
@@ -40,43 +40,61 @@ function isPublicRoute(path) {
  * Main authentication middleware
  * Validates JWT tokens and attaches user to request
  */
+const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
+
+/**
+ * Main authentication middleware
+ * Uses Clerk to verify tokens and resolves local user from database
+ */
 const authenticateToken = async (req, res, next) => {
     // Skip auth for public routes
     if (isPublicRoute(req.path)) {
         return next();
     }
 
-    // Get token from Authorization header
-    const authHeader = req.headers['authorization'];
-    let token = authHeader && authHeader.split(' ')[1];
-
-    // Also check query parameter for download endpoints (with extra validation)
-    if (!token && req.query.token && req.path.includes('/download')) {
-        token = req.query.token;
-    }
-
-    if (!token) {
-        return res.status(401).json({
-            error: 'Authentication required',
-            code: 'NO_TOKEN',
-            message: 'No authentication token provided',
-        });
-    }
-
-    // DEVELOPMENT ONLY: Allow demo tokens for local testing
-    // These are automatically disabled in production
-    if (env.isDevelopment && env.get('ALLOW_DEMO_TOKENS', 'false') === 'true') {
-        const demoUser = getDemoUser(token);
-        if (demoUser) {
-            req.user = demoUser;
-            req.isDemoUser = true;
-            return next();
-        }
-    }
-
-    // Verify JWT token
+    // 1. Verify Clerk Token
+    // We use a manual check wrapper because we need to handle the error response custom JSON
     try {
-        const decoded = tokenService.verifyAccessToken(token);
+        // Get token
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (!token) {
+            return res.status(401).json({
+                error: 'Authentication required',
+                code: 'NO_TOKEN',
+                message: 'No authentication token provided',
+            });
+        }
+
+        // DEVELOPMENT: Allow demo tokens if explicitly enabled
+        if (env.isDevelopment && env.get('ALLOW_DEMO_TOKENS', 'false') === 'true') {
+            const demoUser = getDemoUser(token);
+            if (demoUser) {
+                req.user = demoUser;
+                req.isDemoUser = true;
+                return next();
+            }
+        }
+
+        // Verify with Clerk
+        // Note: You must have CLERK_SECRET_KEY in backend/.env
+        const clerkClient = require('@clerk/clerk-sdk-node').createClerkClient({
+            secretKey: process.env.CLERK_SECRET_KEY,
+            publishableKey: process.env.CLERK_PUBLISHABLE_KEY
+        });
+
+        const clerkTokenState = await clerkClient.verifyToken(token);
+
+        // 2. Resolve Local User from Database using Email
+        // We assume the Clerk User's primary email matches the local DB email
+        // We need to fetch the user details from Clerk to get the email
+        const clerkUser = await clerkClient.users.getUser(clerkTokenState.sub);
+        const primaryEmail = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress;
+
+        if (!primaryEmail) {
+            throw new Error('Clerk user has no primary email');
+        }
 
         // Get user from database with employee info
         const user = await db.getOne(`
@@ -86,14 +104,16 @@ const authenticateToken = async (req, res, next) => {
                 e.emp_id, e.department, e.manager_id, e.position as job_title
             FROM users u 
             LEFT JOIN employees e ON u.email = e.email 
-            WHERE u.id = ?
-        `, [decoded.sub]);
+            WHERE u.email = ?
+        `, [primaryEmail]);
 
         if (!user) {
+            // User exists in Clerk but not in local DB
+            // Optional: Auto-create user or return specific error
             return res.status(401).json({
                 error: 'User not found',
                 code: 'USER_NOT_FOUND',
-                message: 'The user associated with this token no longer exists',
+                message: 'User exists in Auth provider but not in local system.',
             });
         }
 
@@ -109,6 +129,7 @@ const authenticateToken = async (req, res, next) => {
         // Attach user to request
         req.user = {
             id: user.id,
+            clerkId: clerkTokenState.sub,
             emp_id: user.emp_id || `EMP${String(user.id).padStart(3, '0')}`,
             employeeId: user.emp_id || `EMP${String(user.id).padStart(3, '0')}`,
             name: user.name,
@@ -121,30 +142,21 @@ const authenticateToken = async (req, res, next) => {
             lastLogin: user.last_login_at,
         };
 
-        // Attach token info for audit purposes
+        // Attach token info (legacy support)
         req.tokenInfo = {
-            jti: decoded.jti,
-            iat: decoded.iat,
-            exp: decoded.exp,
+            sub: clerkTokenState.sub,
+            iat: clerkTokenState.iat,
+            exp: clerkTokenState.exp,
         };
 
         next();
+
     } catch (error) {
         console.error('Token verification failed:', error.message);
-
-        // Determine appropriate error response
-        if (error.message === 'Access token expired') {
-            return res.status(401).json({
-                error: 'Token expired',
-                code: 'TOKEN_EXPIRED',
-                message: 'Your session has expired. Please refresh your token or login again.',
-            });
-        }
-
         return res.status(401).json({
             error: 'Invalid token',
             code: 'INVALID_TOKEN',
-            message: 'The provided token is invalid.',
+            message: 'Authentication failed: ' + error.message,
         });
     }
 };
@@ -243,7 +255,7 @@ const requireOwnership = (userIdParam = 'userId') => {
 
         const resourceUserId = req.params[userIdParam] || req.body[userIdParam];
         const isOwner = String(req.user.id) === String(resourceUserId) ||
-                        req.user.emp_id === resourceUserId;
+            req.user.emp_id === resourceUserId;
         const isPrivileged = ['admin', 'hr'].includes(req.user.role);
 
         if (!isOwner && !isPrivileged) {

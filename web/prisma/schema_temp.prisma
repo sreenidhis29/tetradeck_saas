@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://user:password@localhost:5432/mydb?schema=public"
+}
+
+// Enums
+enum UnitType {
+  company
+  division
+  department
+  team
+  sub_team
+}
+
+enum Gender {
+  M
+  F
+  O
+}
+
+enum LeaveStatus {
+  draft
+  pending
+  approved
+  rejected
+  cancelled
+  escalated
+}
+
+enum AIRecommendation {
+  approve
+  reject
+  review
+  escalate
+}
+
+// 1. Organization Structure
+model OrganizationUnit {
+  unit_id       Int                @id @default(autoincrement())
+  unit_code     String             @unique
+  unit_name     String
+  unit_type     UnitType
+  parent_unit_id Int?
+  head_emp_id   String?
+  country_code  String             @default("IN")
+  location      String?
+  cost_center   String?
+  is_active     Boolean            @default(true)
+  created_at    DateTime           @default(now())
+  
+  parent        OrganizationUnit?  @relation("OrgHierarchy", fields: [parent_unit_id], references: [unit_id])
+  children      OrganizationUnit[] @relation("OrgHierarchy")
+  
+  @@map("organization_units")
+}
+
+// 2. Job Levels
+model JobLevel {
+  level_id             Int     @id @default(autoincrement())
+  level_code           String  @unique
+  level_name           String
+  level_rank           Int
+  can_approve_leave    Boolean @default(false)
+  max_reportees        Int     @default(0)
+  min_experience_years Int     @default(0)
+  is_management        Boolean @default(false)
+  is_executive         Boolean @default(false)
+
+  @@map("job_levels")
+}
+
+// 3. Employees
+model Employee {
+  emp_id              String    @id @unique
+  full_name           String
+  email               String    @unique
+  department          String?
+  position            String?
+  manager_id          String?
+  hire_date           DateTime?
+  employment_type     String?
+  work_location       String?
+  level_code          String?   @default("L3")
+  country_code        String?   @default("IN")
+  gender              Gender?
+  is_active           Boolean   @default(true)
+  
+  // Auth & Integrations
+  clerk_id            String?   @unique // New field for Clerk mapping
+  google_id           String?
+  slack_user_id       String?
+  
+  // Relations
+  manager             Employee?  @relation("Manager", fields: [manager_id], references: [emp_id])
+  reports             Employee[] @relation("Manager")
+  leave_requests      LeaveRequest[]
+  leave_balances      LeaveBalance[]
+  approval_hierarchy  ApprovalHierarchy?
+
+  @@map("employees")
+}
+
+// 4. Approval Hierarchy
+model ApprovalHierarchy {
+  hierarchy_id    Int      @id @default(autoincrement())
+  emp_id          String   @unique
+  level1_approver String
+  level2_approver String?
+  level3_approver String?
+  level4_approver String?
+  hr_partner      String?
+  effective_from  DateTime
+  effective_to    DateTime @default(dbgenerated("'2099-12-31'::date")) 
+  is_active       Boolean  @default(true)
+
+  employee        Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@map("approval_hierarchy")
+}
+
+// 5. Leave Requests (Enterprise)
+model LeaveRequest {
+  request_id        String   @id
+  emp_id            String
+  country_code      String
+  leave_type        String
+  start_date        DateTime
+  end_date          DateTime
+  total_days        Decimal  @db.Decimal(5, 2)
+  working_days      Decimal  @db.Decimal(5, 2)
+  is_half_day       Boolean  @default(false)
+  reason            String   @db.Text
+  
+  // AI Analysis
+  ai_recommendation AIRecommendation?
+  ai_confidence     Decimal?          @db.Decimal(5, 4)
+  ai_analysis_json  Json?
+
+  // Workflow
+  status            LeaveStatus @default(pending)
+  current_approver  String?
+  
+  // SLAs
+  sla_deadline      DateTime?
+  sla_breached      Boolean     @default(false)
+  escalation_count  Int         @default(0)
+
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  employee          Employee    @relation(fields: [emp_id], references: [emp_id])
+
+  @@index([emp_id])
+  @@index([status])
+  @@map("leave_requests_enterprise")
+}
+
+// 7. Leave Balances
+model LeaveBalance {
+  balance_id         Int     @id @default(autoincrement())
+  emp_id             String
+  country_code       String
+  leave_type         String
+  year               Int
+  
+  annual_entitlement Decimal @db.Decimal(5, 2)
+  carried_forward    Decimal @default(0) @db.Decimal(5, 2)
+  used_days          Decimal @default(0) @db.Decimal(5, 2)
+  pending_days       Decimal @default(0) @db.Decimal(5, 2)
+  
+  employee           Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@unique([emp_id, leave_type, year])
+  @@map("leave_balances_v2")
+}

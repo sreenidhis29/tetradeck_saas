@@ -11,6 +11,7 @@
         "dev": "nodemon server.js"
     },
     "dependencies": {
+        "@clerk/clerk-sdk-node": "^4.13.23",
         "axios": "^1.13.2",
         "bcryptjs": "^3.0.3",
         "chromadb": "^3.1.7",
