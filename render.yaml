@@ -9,6 +9,6 @@ services:
     startCommand: gunicorn constraint_engine:app
     envVars:
       - key: PORT
-        value: 8001
+        value: "8001"
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: "3.9.0"
