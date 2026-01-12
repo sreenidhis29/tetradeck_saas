@@ -77,7 +77,7 @@ export async function analyzeLeaveRequest(
 
         // 5. Call Python Agent
         // Assuming running on localhost:8001
-        const agentUrl = process.env.AI_AGENT_URL || "http://127.0.0.1:8001/analyze";
+        const agentUrl = (process.env.CONSTRAINT_ENGINE_URL || "http://127.0.0.1:8001") + "/analyze";
 
         let analysis: AIAnalysisResult;
 

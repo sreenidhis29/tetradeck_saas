@@ -3,7 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma'; // Assumed Prisma client location
 
 // AI Service URL (Internal Docker Network or Localhost)
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8001';
+const AI_SERVICE_URL = process.env.CONSTRAINT_ENGINE_URL || 'http://127.0.0.1:8001';
 
 export async function POST(req: NextRequest) {
     try {

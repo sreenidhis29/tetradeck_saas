@@ -175,7 +175,7 @@ export async function analyzeLeaveRequest(text: string) {
     if (!emp) return { success: false, error: "Employee profile not found" };
 
     try {
-        const response = await fetch('http://localhost:8001/analyze', {
+        const response = await fetch(`${process.env.CONSTRAINT_ENGINE_URL || 'http://localhost:8001'}/analyze`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
