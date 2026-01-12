@@ -117,7 +117,17 @@ def get_db_connection():
     """Get database connection using explicit variables or safe URL"""
     try:
         print(f"🔌 Connecting to DB...", file=sys.stderr)
-        # Priority 1: Explicit Variables (Best for handling special chars)
+        
+        # Priority 1: DATABASE_URL (Recommended for poolers/Supabase)
+        if DB_URL:
+            # Also ensure SSL mode if not already present
+            url_to_use = DB_URL
+            if 'sslmode' not in url_to_use:
+                sep = '&' if '?' in url_to_use else '?'
+                url_to_use += f"{sep}sslmode=require"
+            return psycopg2.connect(url_to_use)
+
+        # Priority 2: Explicit Variables Fallback (Best for handling special chars)
         if DB_HOST and DB_USER and DB_PASSWORD:
             return psycopg2.connect(
                 host=DB_HOST,
@@ -128,16 +138,7 @@ def get_db_connection():
                 sslmode=DB_SSL
             )
             
-        # Priority 2: DATABASE_URL Fallback
-        if DB_URL:
-            # Also ensure SSL mode if not already present
-            url_to_use = DB_URL
-            if 'sslmode' not in url_to_use:
-                sep = '&' if '?' in url_to_use else '?'
-                url_to_use += f"{sep}sslmode=require"
-            return psycopg2.connect(url_to_use)
-            
-        print("❌ Database configuration missing (DB_HOST/USER/PASS or DATABASE_URL)", file=sys.stderr)
+        print("❌ Database configuration missing (DATABASE_URL or DB_HOST/USER/PASS)", file=sys.stderr)
         return None
 
     except Exception as e:
@@ -1195,6 +1196,17 @@ def analyze():
     print(f"{'='*60}\n")
     
     return jsonify(result)
+
+
+@app.route('/', methods=['GET'])
+def home():
+    """Service health check"""
+    return jsonify({
+        "status": "online",
+        "service": "Constraint Satisfaction Engine",
+        "version": "1.0.0",
+        "endpoints": ["/rules", "/validate", "/analyze", "/evaluate"]
+    })
 
 
 @app.route('/rules', methods=['GET'])
