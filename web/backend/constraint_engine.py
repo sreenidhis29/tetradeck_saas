@@ -105,6 +105,12 @@ CONSTRAINT_RULES = {
         "name": "Monthly Leave Quota",
         "description": "Maximum leaves per month per employee",
         "max_per_month": 5
+    },
+    "RULE014": {
+        "name": "Half-Day Leave Escalation",
+        "description": "Half-day leaves require HR approval - never auto-approved",
+        "always_escalate": True,
+        "priority": "HIGH"
     }
 }
 
@@ -113,36 +119,101 @@ from urllib.parse import urlparse, unquote
 
 from urllib.parse import quote_plus
 
-def get_db_connection():
-    """Get database connection using explicit variables or safe URL"""
-    try:
-        print(f"🔌 Connecting to DB...", file=sys.stderr)
-        
-        # Priority 1: DATABASE_URL (Recommended for poolers/Supabase)
-        if DB_URL:
-            # Also ensure SSL mode if not already present
-            url_to_use = DB_URL
-            if 'sslmode' not in url_to_use:
-                sep = '&' if '?' in url_to_use else '?'
-                url_to_use += f"{sep}sslmode=require"
-            return psycopg2.connect(url_to_use)
+# ============================================================
+# CONNECTION POOL MANAGEMENT
+# Single persistent connection for performance
+# ============================================================
+_connection_pool = None
 
-        # Priority 2: Explicit Variables Fallback (Best for handling special chars)
-        if DB_HOST and DB_USER and DB_PASSWORD:
-            return psycopg2.connect(
-                host=DB_HOST,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                port=DB_PORT,
-                dbname=DB_NAME,
-                sslmode=DB_SSL
-            )
-            
-        print("❌ Database configuration missing (DATABASE_URL or DB_HOST/USER/PASS)", file=sys.stderr)
+class PooledConnection:
+    """Wrapper around psycopg2 connection that ignores close() calls"""
+    def __init__(self, conn):
+        self._conn = conn
+        
+    def cursor(self, *args, **kwargs):
+        return self._conn.cursor(*args, **kwargs)
+    
+    def commit(self):
+        return self._conn.commit()
+    
+    def rollback(self):
+        return self._conn.rollback()
+    
+    def close(self):
+        # NO-OP: Don't actually close the pooled connection
+        pass
+    
+    @property
+    def closed(self):
+        return self._conn.closed
+    
+    @property
+    def autocommit(self):
+        return self._conn.autocommit
+    
+    @autocommit.setter
+    def autocommit(self, value):
+        self._conn.autocommit = value
+
+def _create_connection():
+    """Create a new database connection"""
+    print(f"🔌 Creating new DB connection...", file=sys.stderr)
+    
+    # Priority 1: DATABASE_URL (Recommended for poolers/Supabase)
+    if DB_URL:
+        url_to_use = DB_URL
+        if 'sslmode' not in url_to_use:
+            sep = '&' if '?' in url_to_use else '?'
+            url_to_use += f"{sep}sslmode=require"
+        conn = psycopg2.connect(url_to_use)
+        conn.autocommit = True
+        return conn
+
+    # Priority 2: Explicit Variables Fallback
+    if DB_HOST and DB_USER and DB_PASSWORD:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            sslmode=DB_SSL
+        )
+        conn.autocommit = True
+        return conn
+        
+    print("❌ Database configuration missing (DATABASE_URL or DB_HOST/USER/PASS)", file=sys.stderr)
+    return None
+
+def get_db_connection():
+    """Get database connection from pool (creates if needed, reconnects if stale)"""
+    global _connection_pool
+    
+    try:
+        # Check if existing connection is valid
+        if _connection_pool and not _connection_pool.closed:
+            try:
+                # Quick health check - ensure connection is still alive
+                cur = _connection_pool._conn.cursor()
+                cur.execute("SELECT 1")
+                cur.close()
+                return _connection_pool
+            except Exception:
+                # Connection is dead, need to reconnect
+                print("⚠️ Connection stale, reconnecting...", file=sys.stderr)
+                _connection_pool = None
+        
+        # Create new connection
+        raw_conn = _create_connection()
+        if raw_conn:
+            _connection_pool = PooledConnection(raw_conn)
+            print("✅ DB connection pool initialized", file=sys.stderr)
+            return _connection_pool
         return None
 
     except Exception as e:
         print(f"❌ Database connection error: {e}", file=sys.stderr)
+        _connection_pool = None
         return None
 
 def test_db_connection():
@@ -153,7 +224,7 @@ def test_db_connection():
             print("\n" + "="*60)
             print("✅ DATABASE CONNECTED SUCCESSFULLY")
             print("="*60 + "\n")
-            conn.close()
+            # Don't close - connection pool handles this
             return True
         except Exception:
             pass
@@ -874,6 +945,36 @@ def check_rule013_monthly_quota(emp_id: str, leave_info: Dict) -> Dict:
     }
 
 
+def check_rule014_half_day(leave_info: Dict) -> Dict:
+    """RULE014: Half-day leaves ALWAYS require HR approval - never auto-approved"""
+    is_half_day = leave_info.get('is_half_day', False)
+    
+    # Also detect from leave_type name
+    leave_type_lower = leave_info.get('leave_type', '').lower()
+    if 'half' in leave_type_lower or 'half-day' in leave_type_lower:
+        is_half_day = True
+    
+    # Also detect from days_requested being 0.5
+    if leave_info.get('days_requested') == 0.5:
+        is_half_day = True
+    
+    # Half-day requests ALWAYS fail this rule to force escalation
+    passed = not is_half_day
+    
+    return {
+        "rule_id": "RULE014",
+        "rule_name": "Half-Day Leave Escalation",
+        "passed": passed,
+        "details": {
+            "is_half_day": is_half_day,
+            "priority": "HIGH" if is_half_day else "NORMAL",
+            "requires_hr_approval": is_half_day
+        },
+        "message": f"✅ Standard leave request" if passed
+                   else f"⚠️ HALF-DAY LEAVE: Requires HR approval (Priority: HIGH)"
+    }
+
+
 # ============================================================
 # MAIN CONSTRAINT ENGINE
 # ============================================================
@@ -906,6 +1007,7 @@ def evaluate_all_constraints(emp_id: str, leave_info: Dict, custom_rules: Dict =
         check_rule006_notice(leave_info),
         check_rule007_consecutive(leave_info),
         check_rule013_monthly_quota(emp_id, leave_info),
+        check_rule014_half_day(leave_info),  # Half-day always escalates
     ]
     
     for check in checks:
@@ -926,6 +1028,7 @@ def evaluate_all_constraints(emp_id: str, leave_info: Dict, custom_rules: Dict =
     return {
         "approved": all_passed,
         "status": "APPROVED" if all_passed else "ESCALATE_TO_HR",
+        "recommendation": "approve" if all_passed else "escalate",
         "employee": {
             "emp_id": emp_id,
             "name": employee['full_name'] if employee else "Unknown",
@@ -1124,14 +1227,13 @@ def save_leave_request(emp_id: str, leave_info: Dict, result: Dict) -> Optional[
         
         conn.commit()
         cur.close()
-        conn.close()
+        # Don't close pooled connection
         print(f"✅ Leave Request Saved: {request_id} ({status})")
         return request_id
         
     except Exception as e:
         print(f"❌ Error saving leave request: {e}")
-        if conn:
-            conn.close()
+        # Connection will be reused, don't close
         return None
 
 
@@ -1144,8 +1246,7 @@ def health():
     """Health check endpoint"""
     conn = get_db_connection()
     db_ok = conn is not None
-    if conn:
-        conn.close()
+    # Don't close pooled connection
     
     return jsonify({
         "status": "healthy" if db_ok else "degraded",
@@ -1177,14 +1278,46 @@ def analyze():
     print(f"Employee: {emp_id}")
     print(f"Request: {text}")
     
-    # Extract leave information
+    # Extract leave information from text
     leave_info = extract_leave_info(text)
-    leave_info['original_text'] = text # Store original text
+    leave_info['original_text'] = text
+    
+    # Check for half-day flag from request
+    is_half_day = data.get('is_half_day', False) or data.get('extracted_info', {}).get('is_half_day', False)
+    if is_half_day:
+        leave_info['is_half_day'] = True
+        leave_info['days_requested'] = 0.5
+        print(f"⚠️ HALF-DAY LEAVE DETECTED - Will require HR approval")
+    
+    # OVERRIDE with explicit values from request if provided (for integrity)
+    if data.get('start_date'):
+        leave_info['start_date'] = data.get('start_date')
+    if data.get('end_date'):
+        leave_info['end_date'] = data.get('end_date')
+    if data.get('total_days'):
+        leave_info['days_requested'] = int(data.get('total_days')) if not is_half_day else 0.5
+    if data.get('leave_type'):
+        # Map common types to our internal format
+        lt = data.get('leave_type', '').lower()
+        if 'casual' in lt or 'annual' in lt:
+            leave_info['leave_type'] = 'Annual Leave'
+        elif 'sick' in lt:
+            leave_info['leave_type'] = 'Sick Leave'
+        elif 'emergency' in lt:
+            leave_info['leave_type'] = 'Emergency Leave'
+        elif 'personal' in lt:
+            leave_info['leave_type'] = 'Personal Leave'
+    
     print(f"Extracted: {leave_info['days_requested']} days of {leave_info['leave_type']}")
     print(f"Dates: {leave_info['start_date']} to {leave_info['end_date']}")
     
     # Evaluate all constraints
     result = evaluate_all_constraints(emp_id, leave_info)
+    
+    # Add half-day priority flag to result
+    if is_half_day:
+        result['is_half_day'] = True
+        result['priority'] = 'HIGH'
     
     # SAVE TO DATABASE
     request_id = save_leave_request(emp_id, leave_info, result)

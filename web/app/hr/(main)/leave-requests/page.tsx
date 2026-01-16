@@ -90,6 +90,11 @@ export default function LeaveRequestsPage() {
                                             <div className="flex items-center gap-2 mb-1">
                                                 <h3 className="text-lg font-bold text-white">{req.employee_name}</h3>
                                                 <span className="text-xs text-slate-500 font-mono">#{req.request_id}</span>
+                                                {req.is_half_day && (
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full uppercase tracking-wider">
+                                                        ⚡ Half-Day Priority
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-400">
                                                 <span className="flex items-center gap-1">

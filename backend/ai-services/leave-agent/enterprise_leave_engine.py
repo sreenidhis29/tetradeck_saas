@@ -248,10 +248,17 @@ class EnterpriseLeaveEngine:
     def _check_leave_type_eligibility(self, leave_data: dict, context: dict) -> dict:
         """Check if leave type is valid for employee's country"""
         policy = context.get('policy', {})
+        leave_type = leave_data.get('leave_type', '').lower()
+        
+        # Default allowed leave types if no policy configured
         if not policy:
+            allowed_types = ['sick', 'vacation', 'casual', 'annual', 'maternity', 'paternity', 
+                           'bereavement', 'comp_off', 'compensatory', 'emergency', 'unpaid']
+            if any(allowed in leave_type for allowed in allowed_types):
+                return {'passed': True, 'message': f'Leave type "{leave_type}" is valid'}
             return {
                 'passed': False,
-                'message': f'Leave type "{leave_data.get("leave_type")}" not available in your country',
+                'message': f'Leave type "{leave_type}" not recognized',
                 'details': {'country': leave_data.get('country_code')}
             }
         return {'passed': True, 'message': 'Leave type is valid for your location'}

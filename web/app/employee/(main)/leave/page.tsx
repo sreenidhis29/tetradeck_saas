@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 
 export default function LeavePage() {
     const [input, setInput] = useState('');
+    const [isHalfDay, setIsHalfDay] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -39,22 +40,34 @@ export default function LeavePage() {
         // Calculate days
         const start = new Date(startDate);
         const end = new Date(endDate);
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        let days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+        
+        // If half-day is selected, adjust the days count
+        if (isHalfDay) {
+            days = 0.5;
+        }
 
         startTransition(async () => {
             const res = await analyzeLeaveRequest({
-                type,
+                type: isHalfDay ? `Half-Day ${type}` : type,
                 reason: input,
                 startDate,
                 endDate,
-                days: days > 0 ? days : 1
+                days: days > 0 ? days : 1,
+                isHalfDay
             });
 
             if (res.success && res.analysis) {
                 // Enhance result with extracted info for UI display
                 const enrichedResult = {
                     ...res.analysis,
-                    extracted_info: { leave_type: type, days: days > 0 ? days : 1, start_date: startDate, end_date: endDate }
+                    extracted_info: { 
+                        leave_type: isHalfDay ? `Half-Day ${type}` : type, 
+                        days: isHalfDay ? 0.5 : (days > 0 ? days : 1), 
+                        start_date: startDate, 
+                        end_date: endDate,
+                        is_half_day: isHalfDay
+                    }
                 };
                 setResult(enrichedResult);
             } else {
@@ -72,7 +85,8 @@ export default function LeavePage() {
                 reason: input,
                 startDate: result.extracted_info.start_date,
                 endDate: result.extracted_info.end_date,
-                days: result.extracted_info.days
+                days: result.extracted_info.days,
+                isHalfDay: result.extracted_info.is_half_day || isHalfDay
             });
 
             if (res.success) {
@@ -120,6 +134,32 @@ export default function LeavePage() {
                     placeholder="E.g., I need sick leave from 2024-10-10 to 2024-10-12 due to fever."
                     className="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-white placeholder:text-slate-600 focus:outline-none focus:border-[#00f2ff]/50 transition-all min-h-[160px] resize-none text-lg leading-relaxed"
                 />
+
+                {/* Half-Day Toggle */}
+                <div className="mt-4 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setIsHalfDay(!isHalfDay)}
+                        className={`relative w-14 h-7 rounded-full transition-all duration-200 ${isHalfDay 
+                            ? 'bg-gradient-to-r from-emerald-500 to-slate-500' 
+                            : 'bg-slate-700'
+                        }`}
+                    >
+                        <span 
+                            className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-200 shadow-md ${
+                                isHalfDay ? 'left-8' : 'left-1'
+                            }`}
+                        />
+                    </button>
+                    <span className={`text-sm font-medium ${isHalfDay ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        Half-Day Leave {isHalfDay && '(Requires HR Approval)'}
+                    </span>
+                    {isHalfDay && (
+                        <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-1 rounded-full border border-amber-500/30">
+                            Priority Request
+                        </span>
+                    )}
+                </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-center mt-6 gap-4">
                     <div className="text-sm text-slate-500 flex items-center gap-2 italic">

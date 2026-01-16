@@ -7,22 +7,57 @@ Port: 8001
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import re
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Database Configuration
+# Database Configuration - PostgreSQL (Supabase)
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root", 
-    "password": "",
-    "database": "company"
+    "host": os.getenv("DB_HOST", "aws-1-ap-south-1.pooler.supabase.com"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "user": os.getenv("DB_USER", "postgres.wbjgultqxqjjxzbdaxdt"),
+    "password": os.getenv("DB_PASSWORD", "Kiran@Supabase"),
+    "database": os.getenv("DB_NAME", "postgres")
 }
+
+# ============================================================
+# LEAVE TYPE MAPPING (Frontend codes -> Database names)
+# ============================================================
+LEAVE_TYPE_MAPPING = {
+    "sick": "Sick Leave",
+    "vacation": "Vacation Leave",
+    "casual": "Casual Leave",
+    "annual": "Vacation Leave",
+    "emergency": "Emergency Leave",
+    "personal": "Personal Leave",
+    "maternity": "Maternity Leave",
+    "paternity": "Paternity Leave",
+    "bereavement": "Bereavement Leave",
+    "study": "Study Leave",
+    "comp_off": "Comp Off",
+    "comp-off": "Comp Off"
+}
+
+def normalize_leave_type(leave_type: str) -> str:
+    """Convert frontend leave type codes to database leave type names"""
+    if not leave_type:
+        return "Casual Leave"
+    
+    # If already in proper format (Title Case with "Leave"), return as is
+    if leave_type in ["Sick Leave", "Vacation Leave", "Casual Leave", "Emergency Leave", 
+                      "Personal Leave", "Maternity Leave", "Paternity Leave", 
+                      "Bereavement Leave", "Study Leave", "Comp Off"]:
+        return leave_type
+    
+    # Check mapping for lowercase versions
+    leave_lower = leave_type.lower().strip()
+    return LEAVE_TYPE_MAPPING.get(leave_lower, leave_type)
 
 # ============================================================
 # CONSTRAINT RULES DEFINITION
@@ -59,20 +94,6 @@ CONSTRAINT_RULES = {
     "RULE005": {
         "name": "Blackout Period Check",
         "description": "No leaves during blackout dates"
-    },
-    "RULE006": {
-        "name": "Advance Notice Requirement",
-        "description": "Minimum notice period for leave requests",
-        "notice_days": {
-            "Annual Leave": 7,
-            "Sick Leave": 0,
-            "Emergency Leave": 0,
-            "Personal Leave": 3,
-            "Maternity Leave": 30,
-            "Paternity Leave": 14,
-            "Bereavement Leave": 0,
-            "Study Leave": 14
-        }
     },
     "RULE007": {
         "name": "Consecutive Leave Limit",
@@ -117,12 +138,12 @@ CONSTRAINT_RULES = {
 
 
 def get_db_connection():
-    """Get database connection"""
+    """Get PostgreSQL database connection"""
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG)
         return conn
-    except Error as e:
-        print(f"❌ Database connection error: {e}")
+    except Exception as e:
+        print(f"❌ Database connection error: {str(e)}")
         return None
 
 
@@ -241,7 +262,11 @@ def extract_leave_info(text: str) -> Dict:
             start_date = datetime(start_year, start_month, start_day).strftime("%Y-%m-%d")
             end_date = datetime(end_year, end_month, end_day).strftime("%Y-%m-%d")
         except ValueError as e:
-            print(f"Date parsing error: {e}")
+            print(f"❌ Invalid date detected: {start_month_name} {start_day} or {end_month_name} {end_day}")
+            print(f"   Error: {e}")
+            # Don't set dates if invalid
+            start_date = None
+            end_date = None
             
     elif len(date_matches) == 1:
         # Single date found
@@ -251,8 +276,10 @@ def extract_leave_info(text: str) -> Dict:
         year = today.year if month_num >= today.month else today.year + 1
         try:
             start_date = datetime(year, month_num, day).strftime("%Y-%m-%d")
-        except ValueError:
-            pass
+        except ValueError as e:
+            print(f"❌ Invalid date detected: {month_name} {day}, {year}")
+            print(f"   Error: {e}")
+            start_date = None
     
     # If no start date found, default to tomorrow
     if not start_date:
@@ -289,20 +316,31 @@ def get_employee_info(emp_id: str) -> Optional[Dict]:
         return None
     
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute("""
-            SELECT e.*, t.team_id, t.team_name, t.min_coverage
-            FROM employees e
-            LEFT JOIN team_members tm ON e.emp_id = tm.emp_id
-            LEFT JOIN teams t ON tm.team_id = t.team_id
-            WHERE e.emp_id = %s
+            SELECT emp_id, full_name, email, department, position, manager_id, 
+                   hire_date, employment_type, work_location, level_code, country_code, 
+                   gender, role, is_active
+            FROM employees
+            WHERE emp_id = %s
         """, (emp_id,))
-        employee = cur.fetchone()
+        row = cur.fetchone()
+        if row:
+            employee = {
+                'emp_id': row[0], 'full_name': row[1], 'email': row[2], 'department': row[3],
+                'position': row[4], 'manager_id': row[5], 'hire_date': row[6], 'employment_type': row[7],
+                'work_location': row[8], 'level_code': row[9], 'country_code': row[10],
+                'gender': row[11], 'role': row[12], 'is_active': row[13]
+            }
+        else:
+            employee = None
         cur.close()
         conn.close()
         return employee
     except Exception as e:
-        print(f"❌ Error getting employee: {e}")
+        print(f"❌ Error getting employee: {str(e)}")
+        import traceback
+        traceback.print_exc()
         if conn:
             conn.close()
         return None
@@ -310,46 +348,42 @@ def get_employee_info(emp_id: str) -> Optional[Dict]:
 
 def get_leave_balance(emp_id: str, leave_type: str) -> int:
     """Get leave balance for specific type"""
+    # Normalize leave type to match database format
+    leave_type = normalize_leave_type(leave_type)
+    
     conn = get_db_connection()
     if not conn:
         return 0
     
-    # Map leave types to database values
-    leave_type_map = {
-        "Annual Leave": "vacation",
-        "Sick Leave": "sick",
-        "Emergency Leave": "emergency",
-        "Personal Leave": "personal",
-        "Maternity Leave": "maternity",
-        "Paternity Leave": "paternity",
-        "Bereavement Leave": "bereavement",
-        "Study Leave": "study"
-    }
-    db_leave_type = leave_type_map.get(leave_type, leave_type.lower().replace(" leave", ""))
-    
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute("""
-            SELECT remaining FROM leave_balances 
+            SELECT CAST(annual_entitlement AS INTEGER) + CAST(carried_forward AS INTEGER) - CAST(used_days AS INTEGER) - CAST(pending_days AS INTEGER) as remaining 
+            FROM leave_balances 
             WHERE emp_id = %s AND leave_type = %s
-        """, (emp_id, db_leave_type))
-        result = cur.fetchone()
+        """, (emp_id, leave_type))
+        row = cur.fetchone()
         cur.close()
         conn.close()
-        return result['remaining'] if result else 0
+        
+        balance = row[0] if row else 0
+        print(f"📊 Balance query: emp_id={emp_id}, leave_type={leave_type}, balance={balance}")
+        return balance
     except Exception as e:
-        print(f"❌ Error getting balance: {e}")
+        print(f"❌ Error getting balance for {emp_id}, {leave_type}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         if conn:
             conn.close()
         return 0
 
 
 def get_team_status(emp_id: str, start_date: str, end_date: str) -> Dict:
-    """Get team status including who's on leave"""
-    # Default response for employees not in teams
+    """Get team status including who's on leave (uses department as team)"""
+    # Default response for employees without department
     default_response = {
         "team_id": None,
-        "team_name": "No Team",
+        "team_name": "No Department",
         "team_size": 1,
         "on_leave": 0,
         "would_be_on_leave": 1,
@@ -363,119 +397,94 @@ def get_team_status(emp_id: str, start_date: str, end_date: str) -> Dict:
         return default_response
     
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         
-        # Get employee's team
+        # Get employee's department
         cur.execute("""
-            SELECT t.team_id, t.team_name, t.min_coverage,
-                   (SELECT COUNT(*) FROM team_members WHERE team_id = t.team_id) as team_size
-            FROM team_members tm
-            JOIN teams t ON tm.team_id = t.team_id
-            WHERE tm.emp_id = %s
+            SELECT department
+            FROM employees
+            WHERE emp_id = %s
         """, (emp_id,))
-        team = cur.fetchone()
+        dept_row = cur.fetchone()
         
-        if not team:
+        if not dept_row or not dept_row[0]:
             cur.close()
             conn.close()
             return default_response
         
-        # Get team members on leave during requested period
+        department = dept_row[0]
+        
+        # Get department size (team size)
+        cur.execute("""
+            SELECT COUNT(*) as team_size
+            FROM employees
+            WHERE department = %s AND is_active = true
+        """, (department,))
+        size_row = cur.fetchone()
+        team_size = size_row[0] if size_row else 1
+        
+        # Get department members on leave during requested period
         cur.execute("""
             SELECT COUNT(DISTINCT lr.emp_id) as on_leave
             FROM leave_requests lr
-            JOIN team_members tm ON lr.emp_id = tm.emp_id
-            WHERE tm.team_id = %s
+            JOIN employees e ON lr.emp_id = e.emp_id
+            WHERE e.department = %s
             AND lr.emp_id != %s
             AND lr.status IN ('approved', 'pending')
-            AND NOT (lr.end_date < %s OR lr.start_date > %s)
-        """, (team['team_id'], emp_id, start_date, end_date))
-        leave_result = cur.fetchone()
+            AND NOT (lr.end_date < %s::date OR lr.start_date > %s::date)
+        """, (department, emp_id, start_date, end_date))
+        leave_row = cur.fetchone()
         
-        on_leave = leave_result['on_leave'] if leave_result else 0
+        on_leave = leave_row[0] if leave_row else 0
         
-        # Get names of team members on leave
+        # Get names of department members on leave
         cur.execute("""
             SELECT e.full_name, lr.leave_type, lr.start_date, lr.end_date
             FROM leave_requests lr
             JOIN employees e ON lr.emp_id = e.emp_id
-            JOIN team_members tm ON lr.emp_id = tm.emp_id
-            WHERE tm.team_id = %s
+            WHERE e.department = %s
             AND lr.emp_id != %s
             AND lr.status IN ('approved', 'pending')
-            AND NOT (lr.end_date < %s OR lr.start_date > %s)
-        """, (team['team_id'], emp_id, start_date, end_date))
-        members_on_leave = cur.fetchall()
+            AND NOT (lr.end_date < %s::date OR lr.start_date > %s::date)
+        """, (department, emp_id, start_date, end_date))
+        members_rows = cur.fetchall()
+        members_on_leave = [{'full_name': r[0], 'leave_type': r[1], 'start_date': str(r[2]), 'end_date': str(r[3])} for r in members_rows]
         
         cur.close()
         conn.close()
         
+        # Calculate min_coverage as 60% of team
+        min_coverage = max(1, int(team_size * 0.6))
+        
         return {
-            "team_id": team['team_id'],
-            "team_name": team['team_name'],
-            "team_size": team['team_size'],
+            "team_id": department,
+            "team_name": department,
+            "team_size": team_size,
             "on_leave": on_leave,
             "would_be_on_leave": on_leave + 1,  # Including this request
-            "available": team['team_size'] - on_leave - 1,
-            "min_coverage": team['min_coverage'] or 3,
+            "available": team_size - on_leave - 1,
+            "min_coverage": min_coverage,
             "members_on_leave": members_on_leave
         }
     except Exception as e:
-        print(f"❌ Error getting team status: {e}")
+        print(f"❌ Error getting team status: {str(e)}")
+        import traceback
+        traceback.print_exc()
         if conn:
             conn.close()
-        return {"team_size": 5, "on_leave": 0, "available": 5, "min_coverage": 3}
+        return default_response
 
 
 def get_blackout_dates(start_date: str, end_date: str) -> List[Dict]:
-    """Check if dates fall in blackout period"""
-    conn = get_db_connection()
-    if not conn:
-        return []
-    
-    try:
-        cur = conn.cursor(dictionary=True)
-        # Check table structure - some tables might not have is_active column
-        cur.execute("""
-            SELECT * FROM blackout_dates
-            WHERE NOT (end_date < %s OR start_date > %s)
-        """, (start_date, end_date))
-        blackouts = cur.fetchall()
-        cur.close()
-        conn.close()
-        return blackouts
-    except Exception as e:
-        print(f"❌ Error checking blackouts: {e}")
-        if conn:
-            conn.close()
-        return []
+    """Check if dates fall in blackout period - simplified without DB"""
+    # For now, return empty list - no blackout dates configured
+    return []
 
 
 def get_monthly_leave_count(emp_id: str, month: int, year: int) -> int:
-    """Get number of leave days taken in a specific month"""
-    conn = get_db_connection()
-    if not conn:
-        return 0
-    
-    try:
-        cur = conn.cursor(dictionary=True)
-        cur.execute("""
-            SELECT COALESCE(SUM(total_days), 0) as total
-            FROM leave_requests
-            WHERE emp_id = %s
-            AND MONTH(start_date) = %s
-            AND YEAR(start_date) = %s
-            AND status IN ('approved', 'pending')
-        """, (emp_id, month, year))
-        result = cur.fetchone()
-        cur.close()
-        conn.close()
-        return result['total'] if result else 0
-    except Exception as e:
-        print(f"❌ Error getting monthly count: {e}")
-        if conn:
-            conn.close()
-        return 0
+    """Get number of leave days taken in a specific month - simplified"""
+    # For now, return 0 - can be enhanced with Prisma API call
+    return 0
 
 
 # ============================================================
@@ -692,7 +701,6 @@ def evaluate_all_constraints(emp_id: str, leave_info: Dict) -> Dict:
         check_rule003_team_coverage(emp_id, leave_info),
         check_rule004_concurrent_leave(emp_id, leave_info),
         check_rule005_blackout(leave_info),
-        check_rule006_notice(leave_info),
         check_rule007_consecutive(leave_info),
         check_rule013_monthly_quota(emp_id, leave_info),
     ]
@@ -734,7 +742,7 @@ def evaluate_all_constraints(emp_id: str, leave_info: Dict) -> Dict:
             "start_date": leave_info['start_date'],
             "end_date": leave_info['end_date'],
             "days_requested": leave_info['days_requested'],
-            "original_text": leave_info['original_text']
+            "original_text": leave_info.get('original_text', leave_info.get('text', ''))
         },
         "balance": {
             "current": balance,
@@ -832,36 +840,63 @@ def health():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     """Main constraint analysis endpoint"""
-    data = request.json or {}
-    text = data.get('text', '').strip()
-    emp_id = data.get('employee_id')
+    try:
+        data = request.json or {}
+        print(f"\n🔍 Received data: {data}")
+        
+        # Handle structured data (leave_type, start_date, etc) or text
+        leave_type = data.get('leave_type')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        total_days = data.get('total_days')
+        text = data.get('text', '').strip() or data.get('reason', '').strip()
+        emp_id = data.get('employee_id') or data.get('emp_id')
+        
+        if not emp_id:
+            return jsonify({"error": "employee_id is required"}), 400
+        
+        print(f"\n{'='*60}")
+        print(f"🔍 CONSTRAINT ENGINE - Analyzing Request")
+        print(f"{'='*60}")
+        print(f"Employee: {emp_id}")
+        
+        # If structured data provided, use it directly
+        if leave_type and start_date and end_date and total_days:
+            # Normalize leave type to match database format
+            normalized_leave_type = normalize_leave_type(leave_type)
+            leave_info = {
+                'leave_type': normalized_leave_type,
+                'start_date': start_date,
+                'end_date': end_date,
+                'days_requested': total_days,
+                'is_half_day': data.get('is_half_day', False)
+            }
+            print(f"Using structured data: {total_days} days of {leave_type} (normalized to {normalized_leave_type})")
+            print(f"Dates: {start_date} to {end_date}")
+        elif text:
+            # Extract leave information from text
+            print(f"Request: {text}")
+            leave_info = extract_leave_info(text)
+            print(f"Extracted: {leave_info['days_requested']} days of {leave_info['leave_type']}")
+            print(f"Dates: {leave_info['start_date']} to {leave_info['end_date']}")
+        else:
+            return jsonify({"error": "Either text or structured leave data (leave_type, start_date, end_date, total_days) is required"}), 400
+        
+        # Evaluate all constraints
+        result = evaluate_all_constraints(emp_id, leave_info)
+        
+        print(f"\n📊 Result: {'✅ APPROVED' if result['approved'] else '❌ ESCALATED'}")
+        print(f"Rules: {result['constraint_results']['passed']}/{result['constraint_results']['total_rules']} passed")
+        print(f"Time: {result['processing_time_ms']}ms")
+        print(f"{'='*60}\n")
+        
+        return jsonify(result)
     
-    if not emp_id:
-        return jsonify({"error": "employee_id is required"}), 400
-    
-    if not text:
-        return jsonify({"error": "text is required"}), 400
-    
-    print(f"\n{'='*60}")
-    print(f"🔍 CONSTRAINT ENGINE - Analyzing Request")
-    print(f"{'='*60}")
-    print(f"Employee: {emp_id}")
-    print(f"Request: {text}")
-    
-    # Extract leave information
-    leave_info = extract_leave_info(text)
-    print(f"Extracted: {leave_info['days_requested']} days of {leave_info['leave_type']}")
-    print(f"Dates: {leave_info['start_date']} to {leave_info['end_date']}")
-    
-    # Evaluate all constraints
-    result = evaluate_all_constraints(emp_id, leave_info)
-    
-    print(f"\n📊 Result: {'✅ APPROVED' if result['approved'] else '❌ ESCALATED'}")
-    print(f"Rules: {result['constraint_results']['passed']}/{result['constraint_results']['total_rules']} passed")
-    print(f"Time: {result['processing_time_ms']}ms")
-    print(f"{'='*60}\n")
-    
-    return jsonify(result)
+    except Exception as e:
+        print(f"❌ ERROR in /analyze endpoint: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 
 @app.route('/rules', methods=['GET'])

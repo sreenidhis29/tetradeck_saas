@@ -11,6 +11,7 @@ export async function submitLeaveRequest(formData: {
     startDate: string;
     endDate: string;
     days: number;
+    isHalfDay?: boolean;
 }) {
     const user = await currentUser();
     if (!user) return { success: false, error: "Unauthorized" };
@@ -28,7 +29,8 @@ export async function submitLeaveRequest(formData: {
             reason: formData.reason,
             startDate: formData.startDate,
             endDate: formData.endDate,
-            days: formData.days
+            days: formData.days,
+            isHalfDay: formData.isHalfDay
         });
 
         // Default to strict 'Escalate' if analysis fails or returns error
@@ -119,6 +121,7 @@ export async function submitLeaveRequest(formData: {
                     working_days: formData.days, // Simplified
                     reason: formData.reason,
                     status: requestStatus,
+                    is_half_day: formData.isHalfDay || false,
                     ai_recommendation: isAutoApprovable ? "approve" : "escalate",
                     ai_confidence: 0.95, // Mocked from Python if available
                     ai_analysis_json: JSON.stringify(analysis) as any,

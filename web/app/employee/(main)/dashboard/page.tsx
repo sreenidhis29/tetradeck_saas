@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Clock, Calendar, FileText, Activity } from 'lucide-react';
+import { Clock, Calendar, FileText, Activity, LogIn, LogOut, CheckCircle2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getEmployeeDashboardStats, analyzeLeaveRequest } from '@/app/actions/employee';
+import { getEmployeeDashboardStats, analyzeLeaveRequest, getTodayAttendance, checkIn, checkOut } from '@/app/actions/employee';
 
 export default function EmployeeDashboard() {
     const { user } = useUser();
@@ -27,23 +27,47 @@ export default function EmployeeDashboard() {
     const [aiLoading, setAiLoading] = useState(false);
     const [aiResult, setAiResult] = useState<any>(null);
 
+    // Check-in State
+    const [checkInStatus, setCheckInStatus] = useState<{
+        checked_in: boolean;
+        checked_out: boolean;
+        check_in_time: string | null;
+        check_out_time: string | null;
+    } | null>(null);
+    const [checkInLoading, setCheckInLoading] = useState(false);
+    const [checkInMessage, setCheckInMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
     useEffect(() => {
         const fetchData = async () => {
-            const res = await getEmployeeDashboardStats();
-            if (res.success && res.stats) {
+            const [statsRes, attendanceRes] = await Promise.all([
+                getEmployeeDashboardStats(),
+                getTodayAttendance()
+            ]);
+            
+            if (statsRes.success && statsRes.stats) {
                 setData({
-                    leaveBalance: res.stats.leaveBalance,
-                    annualBalance: res.stats.annualBalance,
-                    annualTotal: res.stats.annualTotal || 20,
-                    sickBalance: res.stats.sickBalance,
-                    sickTotal: res.stats.sickTotal || 10,
-                    attendance: res.stats.attendance,
-                    pendingRequests: res.stats.pendingRequests,
-                    performance: res.stats.performance,
-                    allBalances: res.allBalances || [], // Store full list
-                    history: res.history || []
+                    leaveBalance: statsRes.stats.leaveBalance,
+                    annualBalance: statsRes.stats.annualBalance,
+                    annualTotal: statsRes.stats.annualTotal || 20,
+                    sickBalance: statsRes.stats.sickBalance,
+                    sickTotal: statsRes.stats.sickTotal || 10,
+                    attendance: statsRes.stats.attendance,
+                    pendingRequests: statsRes.stats.pendingRequests,
+                    performance: statsRes.stats.performance,
+                    allBalances: statsRes.allBalances || [],
+                    history: statsRes.history || []
                 });
             }
+            
+            if (attendanceRes.success) {
+                setCheckInStatus({
+                    checked_in: attendanceRes.checked_in ?? false,
+                    checked_out: attendanceRes.checked_out ?? false,
+                    check_in_time: attendanceRes.check_in_time ?? null,
+                    check_out_time: attendanceRes.check_out_time ?? null
+                });
+            }
+            
             setLoading(false);
         };
         fetchData();
@@ -61,6 +85,51 @@ export default function EmployeeDashboard() {
             console.error(res.error);
         }
         setAiLoading(false);
+    };
+
+    const handleCheckIn = async () => {
+        setCheckInLoading(true);
+        setCheckInMessage(null);
+        try {
+            const result = await checkIn();
+            if (result.success) {
+                setCheckInMessage({ type: 'success', text: result.message || 'Checked in!' });
+                setCheckInStatus(prev => ({
+                    ...prev!,
+                    checked_in: true,
+                    check_in_time: result.check_in_time ?? null
+                }));
+            } else {
+                setCheckInMessage({ type: 'error', text: result.error || 'Failed' });
+            }
+        } catch (error) {
+            setCheckInMessage({ type: 'error', text: 'Error occurred' });
+        }
+        setCheckInLoading(false);
+        // Clear message after 3 seconds
+        setTimeout(() => setCheckInMessage(null), 3000);
+    };
+
+    const handleCheckOut = async () => {
+        setCheckInLoading(true);
+        setCheckInMessage(null);
+        try {
+            const result = await checkOut();
+            if (result.success) {
+                setCheckInMessage({ type: 'success', text: `${result.message} - ${result.total_hours}h` });
+                setCheckInStatus(prev => ({
+                    ...prev!,
+                    checked_out: true,
+                    check_out_time: result.check_out_time ?? null
+                }));
+            } else {
+                setCheckInMessage({ type: 'error', text: result.error || 'Failed' });
+            }
+        } catch (error) {
+            setCheckInMessage({ type: 'error', text: 'Error occurred' });
+        }
+        setCheckInLoading(false);
+        setTimeout(() => setCheckInMessage(null), 3000);
     };
 
     const stats = [
@@ -89,6 +158,153 @@ export default function EmployeeDashboard() {
                     Here's your daily overview and performance metrics.
                 </motion.p>
             </header>
+
+            {/* Animated Check-In Widget */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="mb-8"
+            >
+                <div className="glass-panel p-6 relative overflow-hidden group">
+                    {/* Animated Background Gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    
+                    {/* Animated Border Glow */}
+                    <motion.div 
+                        className="absolute inset-0 rounded-2xl"
+                        animate={{
+                            boxShadow: checkInStatus?.checked_in && !checkInStatus?.checked_out 
+                                ? ['0 0 0 0 rgba(16, 185, 129, 0)', '0 0 30px 5px rgba(16, 185, 129, 0.3)', '0 0 0 0 rgba(16, 185, 129, 0)']
+                                : '0 0 0 0 transparent'
+                        }}
+                        transition={{ duration: 2, repeat: checkInStatus?.checked_in && !checkInStatus?.checked_out ? Infinity : 0 }}
+                    />
+                    
+                    <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <motion.div 
+                                className={`p-4 rounded-2xl ${
+                                    checkInStatus?.checked_out 
+                                        ? 'bg-slate-700' 
+                                        : checkInStatus?.checked_in 
+                                            ? 'bg-emerald-500' 
+                                            : 'bg-gradient-to-br from-cyan-500 to-purple-600'
+                                }`}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                {checkInStatus?.checked_out ? (
+                                    <CheckCircle2 className="w-8 h-8 text-white" />
+                                ) : checkInStatus?.checked_in ? (
+                                    <LogOut className="w-8 h-8 text-white" />
+                                ) : (
+                                    <LogIn className="w-8 h-8 text-white" />
+                                )}
+                            </motion.div>
+                            
+                            <div>
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    Today's Attendance
+                                    <Sparkles className="w-4 h-4 text-amber-400" />
+                                </h3>
+                                <p className="text-slate-400 text-sm">
+                                    {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                </p>
+                                {checkInStatus?.check_in_time && (
+                                    <p className="text-emerald-400 text-sm mt-1">
+                                        ✓ Checked in at {checkInStatus.check_in_time}
+                                        {checkInStatus.check_out_time && ` • Out at ${checkInStatus.check_out_time}`}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            {/* Check-in Message Toast */}
+                            <AnimatePresence>
+                                {checkInMessage && (
+                                    <motion.div
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                                            checkInMessage.type === 'success' 
+                                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                                : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                        }`}
+                                    >
+                                        {checkInMessage.text}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Check-In/Out Button */}
+                            {!checkInStatus?.checked_in ? (
+                                <motion.button
+                                    onClick={handleCheckIn}
+                                    disabled={checkInLoading || loading}
+                                    className="relative px-8 py-4 rounded-xl font-bold text-white overflow-hidden group/btn disabled:opacity-50"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    {/* Animated Gradient Background */}
+                                    <motion.div 
+                                        className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"
+                                        animate={{ 
+                                            backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] 
+                                        }}
+                                        transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                                        style={{ backgroundSize: '200% 200%' }}
+                                    />
+                                    {/* Shine Effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                                    
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        {checkInLoading ? (
+                                            <motion.div 
+                                                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                                            />
+                                        ) : (
+                                            <LogIn className="w-5 h-5" />
+                                        )}
+                                        Check In
+                                    </span>
+                                </motion.button>
+                            ) : !checkInStatus?.checked_out ? (
+                                <motion.button
+                                    onClick={handleCheckOut}
+                                    disabled={checkInLoading}
+                                    className="relative px-8 py-4 rounded-xl font-bold text-white overflow-hidden group/btn disabled:opacity-50 bg-gradient-to-r from-rose-500 to-orange-500"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        {checkInLoading ? (
+                                            <motion.div 
+                                                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                                            />
+                                        ) : (
+                                            <LogOut className="w-5 h-5" />
+                                        )}
+                                        Check Out
+                                    </span>
+                                </motion.button>
+                            ) : (
+                                <div className="px-6 py-4 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-400 font-medium flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    Day Complete
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {stats.map((stat, i) => (

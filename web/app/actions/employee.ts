@@ -166,36 +166,90 @@ export async function analyzeLeaveRequest(text: string) {
     const user = await currentUser();
     if (!user) return { success: false, error: "Unauthorized" };
 
-    // Get emp_id corresponding to clerk_id
-    const emp = await prisma.employee.findUnique({
-        where: { clerk_id: user.id },
-        select: { emp_id: true }
-    });
-
-    if (!emp) return { success: false, error: "Employee profile not found" };
-
     try {
-        const response = await fetch(`${process.env.CONSTRAINT_ENGINE_URL || 'http://localhost:8001'}/analyze`, {
+        // Get employee from database
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            include: {
+                company: true,
+                leave_balances: {
+                    where: { year: new Date().getFullYear() }
+                }
+            }
+        });
+
+        if (!employee) {
+            return { success: false, error: "Employee profile not found. Please complete onboarding." };
+        }
+
+        // Calculate remaining leave balance for the detected type
+        const balanceMap: Record<string, number> = {};
+        employee.leave_balances.forEach(bal => {
+            const total = Number(bal.annual_entitlement) + Number(bal.carried_forward);
+            const used = Number(bal.used_days) + Number(bal.pending_days);
+            balanceMap[bal.leave_type.toLowerCase()] = total - used;
+        });
+
+        // Default remaining if type not found
+        const remainingLeave = balanceMap['vacation leave'] || balanceMap['casual leave'] || 20;
+
+        // AI Service URL - use localhost for local development
+        const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8001';
+        console.log('[AI] Calling AI service at:', aiUrl);
+
+        // Call the AI constraint engine directly
+        const aiResponse = await fetch(`${aiUrl}/analyze`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                employee_id: emp.emp_id,
-                text: text
+                employee_id: employee.emp_id,
+                text: text,
+                extracted_info: {
+                    type: "casual", // Parse from text ideally
+                    dates: [],
+                    duration: 1
+                },
+                team_state: {
+                    team: {
+                        teamSize: 10,
+                        alreadyOnLeave: 0,
+                        min_coverage: 3,
+                        max_concurrent_leave: 5
+                    },
+                    blackoutDates: []
+                },
+                leave_balance: {
+                    remaining: remainingLeave
+                }
             }),
-            cache: 'no-store'
         });
 
-        if (!response.ok) {
-            throw new Error(`Constraint Engine Error: ${response.statusText}`);
+        if (!aiResponse.ok) {
+            const errText = await aiResponse.text().catch(() => '');
+            throw new Error(`AI Engine Error: ${aiResponse.status} ${errText}`);
         }
 
-        const data = await response.json();
-        return { success: true, data };
+        const data = await aiResponse.json();
+        
+        return { 
+            success: true, 
+            data: {
+                ...data,
+                employee: {
+                    emp_id: employee.emp_id,
+                    name: employee.full_name,
+                    department: employee.department
+                }
+            }
+        };
     } catch (error) {
         console.error("AI Analysis Error:", error);
-        return { success: false, error: "AI Service Unavailable. Please try again later." };
+        return { 
+            success: false, 
+            error: error instanceof Error ? error.message : "AI Service Unavailable. Please try again later." 
+        };
     }
 }
 
@@ -226,7 +280,8 @@ export async function getLeaveHistory() {
                 reason: req.reason,
                 status: req.status,
                 total_days: req.total_days.toString(),
-                created_at: req.created_at.toISOString()
+                created_at: req.created_at.toISOString(),
+                is_half_day: req.is_half_day || false
             }))
         };
     } catch (error) {
@@ -264,5 +319,252 @@ export async function getEmployeeProfile() {
     } catch (error) {
         console.error("Profile Fetch Error:", error);
         return { success: false, error: "Failed to fetch profile" };
+    }
+}
+
+// ============================================================
+// ATTENDANCE & CHECK-IN ACTIONS
+// ============================================================
+
+export async function getAttendanceRecords(limit = 30) {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+        });
+
+        if (!employee) return { success: false, error: "Employee not found" };
+
+        const records = await prisma.attendance.findMany({
+            where: { emp_id: employee.emp_id },
+            orderBy: { date: 'desc' },
+            take: limit
+        });
+
+        return {
+            success: true,
+            records: records.map(r => ({
+                id: r.id,
+                date: r.date.toISOString(),
+                check_in: r.check_in?.toISOString() || null,
+                check_out: r.check_out?.toISOString() || null,
+                total_hours: r.total_hours ? Number(r.total_hours) : null,
+                status: r.status
+            }))
+        };
+    } catch (error) {
+        console.error("Attendance Fetch Error:", error);
+        return { success: false, error: "Failed to fetch attendance" };
+    }
+}
+
+export async function getTodayAttendance() {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+        });
+
+        if (!employee) return { success: false, error: "Employee not found" };
+
+        const now = new Date();
+        // Use UTC date to avoid timezone issues
+        const todayStr = now.toISOString().split('T')[0];
+        const today = new Date(todayStr + 'T00:00:00.000Z');
+
+        const attendance = await prisma.attendance.findUnique({
+            where: {
+                emp_id_date: {
+                    emp_id: employee.emp_id,
+                    date: today
+                }
+            }
+        });
+
+        if (!attendance) {
+            return {
+                success: true,
+                checked_in: false,
+                checked_out: false,
+                check_in_time: null,
+                check_out_time: null
+            };
+        }
+
+        return {
+            success: true,
+            checked_in: !!attendance.check_in,
+            checked_out: !!attendance.check_out,
+            check_in_time: attendance.check_in?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) || null,
+            check_out_time: attendance.check_out?.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) || null,
+            total_hours: attendance.total_hours ? Number(attendance.total_hours) : null,
+            status: attendance.status
+        };
+    } catch (error) {
+        console.error("Today Attendance Error:", error);
+        return { success: false, error: "Failed to fetch today's attendance" };
+    }
+}
+
+export async function checkIn() {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            include: { company: true }
+        });
+
+        if (!employee) return { success: false, error: "Employee not found" };
+
+        const now = new Date();
+        // Use UTC date to avoid timezone issues
+        const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const today = new Date(todayStr + 'T00:00:00.000Z');
+
+        // Check if already checked in
+        const existing = await prisma.attendance.findUnique({
+            where: {
+                emp_id_date: {
+                    emp_id: employee.emp_id,
+                    date: today
+                }
+            }
+        });
+
+        if (existing?.check_in) {
+            return { success: false, error: "Already checked in today" };
+        }
+
+        // Determine status - assume 9 AM local time is standard check-in
+        const hour = now.getHours();
+        const isLate = hour >= 9;
+
+        const attendance = await prisma.attendance.upsert({
+            where: {
+                emp_id_date: {
+                    emp_id: employee.emp_id,
+                    date: today
+                }
+            },
+            create: {
+                emp_id: employee.emp_id,
+                date: today,
+                check_in: now,
+                status: isLate ? 'LATE' : 'PRESENT'
+            },
+            update: {
+                check_in: now,
+                status: isLate ? 'LATE' : 'PRESENT'
+            }
+        });
+
+        return {
+            success: true,
+            message: isLate ? "Checked in (Late)" : "Checked in successfully",
+            check_in_time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            isLate
+        };
+    } catch (error) {
+        console.error("Check-in Error:", error);
+        return { success: false, error: "Failed to check in" };
+    }
+}
+
+export async function checkOut() {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+        });
+
+        if (!employee) return { success: false, error: "Employee not found" };
+
+        const now = new Date();
+        // Use UTC date to avoid timezone issues
+        const todayStr = now.toISOString().split('T')[0];
+        const today = new Date(todayStr + 'T00:00:00.000Z');
+
+        // Check if checked in
+        const existing = await prisma.attendance.findUnique({
+            where: {
+                emp_id_date: {
+                    emp_id: employee.emp_id,
+                    date: today
+                }
+            }
+        });
+
+        if (!existing?.check_in) {
+            return { success: false, error: "You haven't checked in yet" };
+        }
+
+        if (existing.check_out) {
+            return { success: false, error: "Already checked out today" };
+        }
+
+        // Calculate total hours
+        const checkInTime = new Date(existing.check_in);
+        const totalHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+        // Determine final status
+        let finalStatus = existing.status;
+        if (totalHours < 4) {
+            finalStatus = 'HALF_DAY';
+        }
+
+        const attendance = await prisma.attendance.update({
+            where: {
+                emp_id_date: {
+                    emp_id: employee.emp_id,
+                    date: today
+                }
+            },
+            data: {
+                check_out: now,
+                total_hours: totalHours,
+                status: finalStatus
+            }
+        });
+
+        return {
+            success: true,
+            message: "Checked out successfully",
+            check_out_time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            total_hours: totalHours.toFixed(2)
+        };
+    } catch (error) {
+        console.error("Check-out Error:", error);
+        return { success: false, error: "Failed to check out" };
+    }
+}
+
+export async function getHolidays(year?: number) {
+    try {
+        const targetYear = year || new Date().getFullYear();
+        
+        const holidays = await prisma.publicHoliday.findMany({
+            where: { year: targetYear },
+            orderBy: { date: 'asc' }
+        });
+
+        return {
+            success: true,
+            holidays: holidays.map(h => ({
+                date: h.date.toISOString(),
+                name: h.name,
+                local_name: h.local_name
+            }))
+        };
+    } catch (error) {
+        console.error("Holidays Fetch Error:", error);
+        return { success: false, error: "Failed to fetch holidays", holidays: [] };
     }
 }

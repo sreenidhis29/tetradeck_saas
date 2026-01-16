@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 import { Inter } from "next/font/google";
@@ -27,6 +28,17 @@ export default async function RootLayout({
       <html lang="en">
         <body className={`${inter.variable} antialiased bg-black text-white selection:bg-[#00f2ff] selection:text-black`}>
           {children}
+          <Toaster 
+            theme="dark" 
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#1a1a2e',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'white'
+              }
+            }}
+          />
         </body>
       </html>
     </ClerkProvider>

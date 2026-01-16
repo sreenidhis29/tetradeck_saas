@@ -254,20 +254,57 @@ model ConstraintPolicy {
   @@map("constraint_policies")
 }
 
-// 10. Audit Logs (NEW - FOR REALTIME)
+// 10. Audit Logs (Enterprise-Grade - Immutable & Tamper-Proof)
 model AuditLog {
-  id          String   @id @default(uuid())
-  action      String   // e.g. "LEAVE_CREATED", "EMPLOYEE_JOINED"
-  entity_type String   // e.g. "LeaveRequest", "Employee"
-  entity_id   String   // ID of the modified entity
-  actor_id    String   // Employee who performed the action (= emp_id)
-  target_org  String   // Company ID
-  details     Json?    // Snapshot of the change or diff
-  created_at  DateTime @default(now())
+  id               String   @id @default(uuid())
+  
+  // WHO - Actor Information
+  actor_type       String   @default("user") // "user", "system", "ai"
+  actor_id         String   // Employee ID or system identifier
+  actor_role       String?  // Role at time of action (hr_manager, employee, etc.)
+  
+  // WHAT - Action Details
+  action           String   // e.g. "LEAVE_CREATED", "EMPLOYEE_JOINED", "AI_DECISION"
+  entity_type      String   // e.g. "LeaveRequest", "Employee", "Attendance"
+  entity_id        String   // ID of the modified entity
+  resource_name    String?  // Human-readable name of resource
+  previous_state   Json?    // State before change (for updates)
+  new_state        Json?    // State after change (for updates)
+  details          Json?    // Additional context/metadata
+  
+  // WHEN - Timestamp with precision
+  created_at       DateTime @default(now()) @db.Timestamptz(3)
+  
+  // WHERE - Origin Information
+  ip_address       String?  // Client IP address
+  user_agent       String?  // Browser/client info
+  request_id       String?  // Unique request correlation ID
+  
+  // WHY - AI Decision Logging
+  decision         String?  // "approved", "rejected", "pending_review"
+  decision_reason  String?  // Human-readable explanation
+  confidence_score Float?   // AI confidence (0.0-1.0)
+  model_version    String?  // AI model version used
+  rules_evaluated  Json?    // List of rules checked by AI
+  
+  // Organization
+  target_org       String   // Company ID
+  
+  // Integrity - Tamper-proof
+  integrity_hash   String?  // SHA-256 hash of log entry
+  prev_hash        String?  // Hash of previous entry (chain)
+  
+  // Relations
+  actor            Employee? @relation("Actor", fields: [actor_id], references: [emp_id])
+  company          Company  @relation(fields: [target_org], references: [id])
 
-  actor       Employee @relation("Actor", fields: [actor_id], references: [emp_id])
-  company     Company  @relation(fields: [target_org], references: [id])
-
+  // Indexes for fast querying
+  @@index([created_at])
+  @@index([actor_id])
+  @@index([entity_type, entity_id])
+  @@index([action])
+  @@index([target_org, created_at])
+  
   @@map("audit_logs")
 }
 
@@ -319,4 +356,34 @@ model Document {
   employee Employee @relation(fields: [emp_id], references: [emp_id])
 
   @@map("documents")
+}
+
+// 14. Company Settings (Holiday Calendar Mode)
+model CompanySettings {
+  id                  String   @id @default(uuid())
+  company_id          String   @unique
+  holiday_mode        String   @default("auto") // "auto" or "manual"
+  country_code        String   @default("IN")
+  custom_holidays     Json?    // For additional custom holidays
+  blocked_dates       Json?    // Dates blocked for leave requests
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+// 15. Public Holidays Cache
+model PublicHoliday {
+  id           String   @id @default(uuid())
+  date         DateTime @db.Date
+  name         String
+  local_name   String?
+  country_code String
+  year         Int
+  is_global    Boolean  @default(true)
+  types        Json?
+  cached_at    DateTime @default(now())
+
+  @@unique([date, country_code])
+  @@map("public_holidays")
 }
