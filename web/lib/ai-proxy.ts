@@ -31,13 +31,25 @@ export async function checkConstraints(
     orgId: string
 ): Promise<EvaluationResult> {
 
-    // 1. Fetch Organization Policies (Custom Rules)
-    // In a real app, we would fetch this from Prisma:
-    // const policy = await prisma.constraintPolicy.findFirst({ where: { org_id: orgId, is_active: true } });
-    // const customRules = policy?.rules || {};
-
-    // For now, we'll mock or pass empty to use defaults
-    const customRules = {};
+    // Fetch Organization Policies (Custom Rules) from database
+    let customRules: Record<string, any> = {};
+    
+    try {
+        // Try to fetch organization-specific constraint policies
+        const { prisma } = await import('@/lib/prisma');
+        const policy = await (prisma as any).constraintPolicy?.findFirst?.({ 
+            where: { org_id: orgId, is_active: true } 
+        });
+        
+        if (policy?.rules) {
+            customRules = typeof policy.rules === 'string' 
+                ? JSON.parse(policy.rules) 
+                : policy.rules;
+        }
+    } catch (dbError) {
+        // If policy table doesn't exist or query fails, continue with empty rules (defaults)
+        console.log("No custom constraint policies found, using defaults");
+    }
 
     try {
         const response = await fetch(`${PYTHON_ENGINE_URL}/evaluate`, {

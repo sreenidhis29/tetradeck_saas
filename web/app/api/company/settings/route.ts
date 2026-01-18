@@ -37,15 +37,12 @@ export async function GET(req: NextRequest) {
                 });
             }
         } catch (dbError) {
-            console.warn("CompanySettings table may not exist:", dbError);
-            // Return default settings if table doesn't exist
-            settings = {
-                id: 'default',
-                holiday_mode: "auto",
-                country_code: employee.country_code || "IN",
-                custom_holidays: null,
-                blocked_dates: null
-            };
+            console.error("CompanySettings table error:", dbError);
+            // Return error instead of mock data
+            return NextResponse.json(
+                { success: false, error: "Company settings not available. Please contact administrator." },
+                { status: 503 }
+            );
         }
 
         return NextResponse.json({
@@ -114,15 +111,12 @@ export async function PUT(req: NextRequest) {
                 }
             });
         } catch (dbError) {
-            console.warn("CompanySettings table may not exist:", dbError);
-            // Return mocked response
-            settings = {
-                id: 'default',
-                holiday_mode: holiday_mode || "auto",
-                country_code: country_code || "IN",
-                custom_holidays,
-                blocked_dates
-            };
+            console.error("CompanySettings table error:", dbError);
+            // Return error instead of mock data
+            return NextResponse.json(
+                { success: false, error: "Unable to save settings. Database service unavailable." },
+                { status: 503 }
+            );
         }
 
         return NextResponse.json({

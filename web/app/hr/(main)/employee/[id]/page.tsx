@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { ShieldCheck, Calendar, Activity, TrendingUp, AlertCircle, CheckCircle, Sparkles, ArrowRight } from "lucide-react";
+import { ShieldCheck, Calendar, Activity, TrendingUp, AlertCircle, CheckCircle, Sparkles, ArrowRight, AlertTriangle } from "lucide-react";
 
 export default async function EmployeeDeepDivePage({ params }: { params: { id: string } }) {
     // 1. Fetch Data
@@ -24,9 +24,72 @@ export default async function EmployeeDeepDivePage({ params }: { params: { id: s
     };
     const utilization = (Number(balance.used_days) / Number(balance.annual_entitlement)) * 100 || 0;
 
-    // AI Reliability Score (Mock Calculation)
-    // Logic: 100 - (UnexpectedLeaves * 5) - (LateArrivals * 2)
-    const reliabilityScore = 95 - (Math.random() * 10);
+    // Calculate actual reliability metrics from leave requests
+    const approvedCount = employee.leave_requests.filter(r => r.status === 'approved').length;
+    const totalRequests = employee.leave_requests.length;
+    
+    // Calculate average advance notice (days between request creation and start date)
+    const advanceNotices = employee.leave_requests
+        .filter(r => r.created_at && r.start_date)
+        .map(r => {
+            const created = new Date(r.created_at);
+            const start = new Date(r.start_date);
+            return Math.max(0, Math.floor((start.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+        });
+    const avgAdvanceNotice = advanceNotices.length > 0 
+        ? Math.round(advanceNotices.reduce((a, b) => a + b, 0) / advanceNotices.length)
+        : null;
+
+    // Calculate average leave duration
+    const leaveDurations = employee.leave_requests
+        .filter(r => r.total_days)
+        .map(r => Number(r.total_days));
+    const avgDuration = leaveDurations.length > 0
+        ? (leaveDurations.reduce((a, b) => a + b, 0) / leaveDurations.length).toFixed(1)
+        : null;
+
+    // Generate real AI insights based on actual data
+    const insights: { type: 'positive' | 'neutral' | 'warning'; text: string }[] = [];
+    
+    if (avgAdvanceNotice !== null) {
+        if (avgAdvanceNotice >= 14) {
+            insights.push({
+                type: 'positive',
+                text: `Consistently requests leaves ${avgAdvanceNotice} days in advance on average. Low risk of operational disruption.`
+            });
+        } else if (avgAdvanceNotice >= 7) {
+            insights.push({
+                type: 'neutral',
+                text: `Average advance notice is ${avgAdvanceNotice} days. Consider encouraging earlier requests.`
+            });
+        } else if (avgAdvanceNotice > 0) {
+            insights.push({
+                type: 'warning',
+                text: `Average advance notice is only ${avgAdvanceNotice} days. May cause scheduling challenges.`
+            });
+        }
+    }
+
+    if (avgDuration !== null) {
+        insights.push({
+            type: 'neutral',
+            text: `Average leave duration is ${avgDuration} days per request.`
+        });
+    }
+
+    if (totalRequests > 0 && approvedCount === totalRequests) {
+        insights.push({
+            type: 'positive',
+            text: `All ${totalRequests} leave requests have been approved. Excellent compliance with leave policies.`
+        });
+    }
+
+    if (insights.length === 0) {
+        insights.push({
+            type: 'neutral',
+            text: 'Not enough leave history to generate insights. Patterns will appear after more requests.'
+        });
+    }
 
     return (
         <div className="min-h-screen text-white p-8">
@@ -49,8 +112,9 @@ export default async function EmployeeDeepDivePage({ params }: { params: { id: s
                 </div>
 
                 <div className="ml-auto glass-panel px-8 py-4 text-right">
-                    <div className="text-sm text-slate-500 uppercase tracking-widest mb-1">Attendance Trust Score</div>
-                    <div className="text-4xl font-bold text-[#00f2ff]">{reliabilityScore.toFixed(0)}<span className="text-lg text-slate-500">/100</span></div>
+                    <div className="text-sm text-slate-500 uppercase tracking-widest mb-1">Leave Requests</div>
+                    <div className="text-4xl font-bold text-[#00f2ff]">{totalRequests}<span className="text-lg text-slate-500"> total</span></div>
+                    <div className="text-xs text-slate-500 mt-1">{approvedCount} approved</div>
                 </div>
             </div>
 
@@ -138,14 +202,18 @@ export default async function EmployeeDeepDivePage({ params }: { params: { id: s
                     <div className="bg-[#00f2ff]/5 border border-[#00f2ff]/20 p-6 rounded-2xl">
                         <h3 className="text-[#00f2ff] font-bold mb-4 flex items-center gap-2"><Sparkles size={18} /> AI Insights</h3>
                         <ul className="space-y-4 text-sm text-slate-300">
-                            <li className="flex gap-3 items-start">
-                                <CheckCircle size={16} className="text-green-400 mt-0.5 shrink-0" />
-                                <span>Consistently requests leaves &gt;14 days in advance. Low risk of operational disruption.</span>
-                            </li>
-                            <li className="flex gap-3 items-start">
-                                <TrendingUp size={16} className="text-purple-400 mt-0.5 shrink-0" />
-                                <span>Average leave duration is 2.3 days, below team average of 4.1 days.</span>
-                            </li>
+                            {insights.map((insight, idx) => (
+                                <li key={idx} className="flex gap-3 items-start">
+                                    {insight.type === 'positive' ? (
+                                        <CheckCircle size={16} className="text-green-400 mt-0.5 shrink-0" />
+                                    ) : insight.type === 'warning' ? (
+                                        <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
+                                    ) : (
+                                        <TrendingUp size={16} className="text-purple-400 mt-0.5 shrink-0" />
+                                    )}
+                                    <span>{insight.text}</span>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 

@@ -155,61 +155,121 @@ class LeaveController {
     async getLeaveBalance(req, res) {
         const { employeeId } = req.params;
 
-        // Mock data - in real system, query database
-        const balances = {
-            vacation: Math.floor(Math.random() * 20) + 5,
-            sick: Math.floor(Math.random() * 10) + 3,
-            personal: Math.floor(Math.random() * 5) + 2,
-            emergency: 5
-        };
+        try {
+            // Query database for real leave balances
+            const result = await this.db.query(
+                `SELECT leave_type, annual_entitlement, used_days, pending_days, carried_forward 
+                 FROM leave_balances WHERE emp_id = $1`,
+                [employeeId]
+            );
 
-        res.json({
-            employeeId,
-            balances,
-            total: Object.values(balances).reduce((a, b) => a + b, 0)
-        });
+            if (result.rows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No leave balance found for employee'
+                });
+            }
+
+            const balances = {};
+            result.rows.forEach(row => {
+                balances[row.leave_type] = {
+                    entitlement: parseFloat(row.annual_entitlement),
+                    used: parseFloat(row.used_days),
+                    pending: parseFloat(row.pending_days),
+                    remaining: parseFloat(row.annual_entitlement) + parseFloat(row.carried_forward) - parseFloat(row.used_days) - parseFloat(row.pending_days)
+                };
+            });
+
+            res.json({
+                success: true,
+                employeeId,
+                balances
+            });
+        } catch (error) {
+            console.error('Error fetching leave balance:', error);
+            res.status(503).json({
+                success: false,
+                error: 'Database service unavailable'
+            });
+        }
     }
 
     // Get team coverage for a date
     async getTeamCoverage(req, res) {
         const { date } = req.params;
 
-        // Mock team data
-        const teamData = {
-            date,
-            totalMembers: 8,
-            onLeave: Math.floor(Math.random() * 3),
-            workingRemotely: Math.floor(Math.random() * 2),
-            inOffice: 5,
-            coverage: 'adequate', // or 'critical' or 'understaffed'
-            constraints: [
-                'Minimum 3 in office',
-                'At least 1 senior engineer',
-                'Support coverage 9-5'
-            ]
-        };
+        try {
+            // Query database for actual team coverage
+            const result = await this.db.query(
+                `SELECT COUNT(*) as on_leave FROM leave_requests 
+                 WHERE status = 'approved' 
+                 AND $1::date BETWEEN start_date AND end_date`,
+                [date]
+            );
 
-        teamData.meetsConstraints = teamData.inOffice >= 3;
+            const totalResult = await this.db.query(
+                `SELECT COUNT(*) as total FROM employees WHERE status = 'active'`
+            );
 
-        res.json(teamData);
+            const onLeave = parseInt(result.rows[0]?.on_leave || 0);
+            const total = parseInt(totalResult.rows[0]?.total || 0);
+            const working = total - onLeave;
+
+            res.json({
+                success: true,
+                date,
+                totalMembers: total,
+                onLeave,
+                working,
+                coveragePercent: total > 0 ? Math.round((working / total) * 100) : 0
+            });
+        } catch (error) {
+            console.error('Error fetching team coverage:', error);
+            res.status(503).json({
+                success: false,
+                error: 'Database service unavailable'
+            });
+        }
     }
 
     // Helper: Get team state from database
     async getTeamState(employeeId) {
-        // Mock data - in real system, query database
-        return {
-            employeeId,
-            teamSize: 8,
-            teamName: 'Engineering',
-            alreadyOnLeave: 2,
-            workingToday: ['EMP001', 'EMP002', 'EMP003', 'EMP004', employeeId, 'EMP006', 'EMP007', 'EMP008'],
-            onLeaveToday: ['EMP002', 'EMP005'],
-            managerId: 'MGR001',
-            minCoverageRequired: 3,
-            maxConcurrentLeave: 3,
-            blackoutDates: ['2024-12-25', '2024-12-31'],
-            projectDeadlines: ['2024-03-30']
-        };
+        try {
+            // Query database for real team state
+            const result = await this.db.query(
+                `SELECT e.*, 
+                    (SELECT COUNT(*) FROM employees WHERE department = e.department) as team_size,
+                    (SELECT COUNT(*) FROM leave_requests lr 
+                     WHERE lr.status = 'approved' 
+                     AND CURRENT_DATE BETWEEN lr.start_date AND lr.end_date
+                     AND lr.emp_id IN (SELECT emp_id FROM employees WHERE department = e.department)) as already_on_leave
+                 FROM employees e WHERE e.emp_id = $1`,
+                [employeeId]
+            );
+
+            if (result.rows.length === 0) {
+                return {
+                    employeeId,
+                    teamSize: 0,
+                    error: 'Employee not found'
+                };
+            }
+
+            const emp = result.rows[0];
+            return {
+                employeeId,
+                teamSize: parseInt(emp.team_size) || 1,
+                teamName: emp.department || 'General',
+                alreadyOnLeave: parseInt(emp.already_on_leave) || 0
+            };
+        } catch (error) {
+            console.error('Error fetching team state:', error);
+            return {
+                employeeId,
+                teamSize: 0,
+                error: 'Database error'
+            };
+        }
     }
 
     // Helper: Log decision to database

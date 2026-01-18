@@ -122,22 +122,26 @@ export async function GET(request: NextRequest) {
             const enhanced = extractFromDetails(details);
             const actor = actorMap.get(log.actor_id);
             
-            // Determine actor type from details or infer from actor_id
-            const actorType = enhanced.actor_type || 
-                (log.actor_id.startsWith('ai_') ? 'ai' : 
-                 log.actor_id.startsWith('sys_') ? 'system' : 'user');
+            // Determine actor type from details
+            const actorType = enhanced.actor_type || 'user';
+            
+            // Get actor name - from details for AI/system, from employee for users
+            let actorName = actor?.full_name || "Unknown";
+            if (details.actor_name) {
+                actorName = details.actor_name; // Use stored name for AI/system
+            } else if (actorType === 'ai') {
+                actorName = "Constraint Engine";
+            } else if (actorType === 'system') {
+                actorName = "System Scheduler";
+            }
             
             return {
                 id: log.id,
                 timestamp: log.created_at.toISOString(),
                 actor_type: actorType,
                 actor_id: log.actor_id,
-                actor_name: actor 
-                    ? actor.full_name 
-                    : actorType === "ai" ? "AI Constraint Engine" 
-                    : actorType === "system" ? "System" 
-                    : "Unknown",
-                actor_role: actor?.role || enhanced.actor_role || "system",
+                actor_name: actorName,
+                actor_role: enhanced.actor_role || actor?.role || "system",
                 action: log.action,
                 resource_type: log.entity_type,
                 resource_id: log.entity_id,

@@ -40,8 +40,7 @@ export default async function HRDashboard() {
                 <MetricCard title="Total Employees" value={totalEmployees.toString()} />
                 <MetricCard title="On Leave Today" value={activeLeaves.toString()} />
                 <MetricCard title="Pending Approvals" value={pendingLeaves.toString()} highlight={pendingLeaves > 0} />
-                {/* Latency is hard to measure purely server-side reliably without logs, simplifying for now */}
-                <MetricCard title="System Throughput" value="12ms" />
+                <MetricCard title="Total Requests" value={(pendingLeaves + activeLeaves).toString()} />
             </div>
 
             {/* Layout Grid */}

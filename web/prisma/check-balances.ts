@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const balances = await prisma.leave_balances.findMany({
+  const balances = await prisma.leaveBalance.findMany({
     where: { emp_id: 'EMP-RD9TTP' }
   });
   
@@ -22,14 +22,16 @@ async function main() {
     ];
     
     for (const leave of leaveTypes) {
-      await prisma.leave_balances.create({
+      await prisma.leaveBalance.create({
         data: {
           emp_id: 'EMP-RD9TTP',
           leave_type: leave.type,
           annual_entitlement: leave.entitlement,
           used_days: 0,
           pending_days: 0,
-          carried_forward: 0
+          carried_forward: 0,
+          country_code: 'IN',
+          year: new Date().getFullYear()
         }
       });
       console.log(`✅ Created ${leave.type}: ${leave.entitlement} days`);
@@ -37,7 +39,7 @@ async function main() {
   } else {
     console.log('✅ Found balances for EMP-RD9TTP:');
     balances.forEach(b => {
-      const remaining = b.annual_entitlement + b.carried_forward - b.used_days - b.pending_days;
+      const remaining = Number(b.annual_entitlement) + Number(b.carried_forward) - Number(b.used_days) - Number(b.pending_days);
       console.log(`  ${b.leave_type}: ${remaining} remaining (${b.annual_entitlement} total, ${b.used_days} used, ${b.pending_days} pending)`);
     });
   }

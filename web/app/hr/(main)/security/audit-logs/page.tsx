@@ -71,67 +71,6 @@ const ACTOR_ICONS: Record<string, React.ComponentType<any>> = {
     'ai': Bot,
 };
 
-// Mock data generator for demo
-function generateMockLogs(count: number = 20): AuditLogEntry[] {
-    const actions = ['create', 'update', 'delete', 'view', 'approve', 'reject', 'analyze', 'login', 'logout'];
-    const resourceTypes = ['leave_request', 'attendance', 'employee', 'team', 'policy', 'session'];
-    const actorTypes: ('user' | 'system' | 'ai')[] = ['user', 'user', 'user', 'system', 'ai'];
-    const users = [
-        { id: 'usr_001', name: 'Alice Johnson', role: 'hr_manager' },
-        { id: 'usr_002', name: 'Bob Smith', role: 'employee' },
-        { id: 'usr_003', name: 'Carol White', role: 'team_lead' },
-        { id: 'sys_001', name: 'System Scheduler', role: 'system' },
-        { id: 'ai_001', name: 'Constraint Engine', role: 'ai_service' },
-    ];
-    const decisions = ['approved', 'rejected', 'pending_review'];
-    const reasons = [
-        'All constraints satisfied. No conflicts detected.',
-        'Insufficient leave balance (2 days available, 5 requested).',
-        'Team coverage below minimum threshold (2/3 required).',
-        'Blackout period applies to this date range.',
-        'Request approved by manager override.',
-    ];
-
-    const logs: AuditLogEntry[] = [];
-    const now = new Date();
-
-    for (let i = 0; i < count; i++) {
-        const actor = users[Math.floor(Math.random() * users.length)];
-        const actorType = actor.id.startsWith('ai_') ? 'ai' : actor.id.startsWith('sys_') ? 'system' : 'user';
-        const action = actions[Math.floor(Math.random() * actions.length)];
-        const resourceType = resourceTypes[Math.floor(Math.random() * resourceTypes.length)];
-        const isAIDecision = actorType === 'ai' && ['approve', 'reject', 'analyze'].includes(action);
-        
-        const timestamp = new Date(now.getTime() - i * Math.random() * 3600000);
-        
-        logs.push({
-            id: `log_${String(i + 1).padStart(6, '0')}`,
-            timestamp: timestamp.toISOString(),
-            actor_type: actorType,
-            actor_id: actor.id,
-            actor_name: actor.name,
-            actor_role: actor.role,
-            action,
-            resource_type: resourceType,
-            resource_id: `${resourceType}_${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-            resource_name: resourceType === 'leave_request' ? 'Annual Leave Request' : undefined,
-            previous_state: action === 'update' ? { status: 'pending' } : undefined,
-            new_state: action === 'update' ? { status: 'approved' } : undefined,
-            decision: isAIDecision ? decisions[Math.floor(Math.random() * decisions.length)] : undefined,
-            decision_reason: isAIDecision ? reasons[Math.floor(Math.random() * reasons.length)] : undefined,
-            confidence_score: isAIDecision ? 0.75 + Math.random() * 0.24 : undefined,
-            model_version: isAIDecision ? 'constraint-engine-v2.1.0' : undefined,
-            ip_address: actorType === 'user' ? `192.168.1.${Math.floor(Math.random() * 255)}` : undefined,
-            user_agent: actorType === 'user' ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' : undefined,
-            request_id: `req_${crypto.randomUUID().split('-')[0]}`,
-            integrity_hash: `sha256:${Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}...`,
-            org_id: 'org_tetradeck',
-        });
-    }
-
-    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
 export default function AuditLogsPage() {
     const [logs, setLogs] = useState<AuditLogEntry[]>([]);
     const [filteredLogs, setFilteredLogs] = useState<AuditLogEntry[]>([]);
@@ -145,7 +84,6 @@ export default function AuditLogsPage() {
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
     const [showFilters, setShowFilters] = useState(false);
     const [newLogCount, setNewLogCount] = useState(0);
-    const [useMockData, setUseMockData] = useState(false);
     const logsContainerRef = useRef<HTMLDivElement>(null);
     const lastFetchTime = useRef<string | null>(null);
 
@@ -169,8 +107,7 @@ export default function AuditLogsPage() {
             const data = await response.json();
             return data.logs as AuditLogEntry[];
         } catch (error) {
-            console.warn('Audit logs API unavailable, using mock data');
-            setUseMockData(true);
+            console.warn('Audit logs API error:', error);
             return null;
         }
     }, [selectedAction, selectedResourceType, dateRange, searchQuery]);
@@ -180,19 +117,17 @@ export default function AuditLogsPage() {
         const loadLogs = async () => {
             setIsLoading(true);
             
-            // Try fetching from API first
+            // Fetch real data from API
             const apiLogs = await fetchLogs();
             
-            if (apiLogs && apiLogs.length > 0) {
+            if (apiLogs) {
                 setLogs(apiLogs);
-                setUseMockData(false);
                 if (apiLogs.length > 0) {
                     lastFetchTime.current = apiLogs[0].timestamp;
                 }
             } else {
-                // Fallback to mock data
-                setLogs(generateMockLogs(50));
-                setUseMockData(true);
+                // API failed - show empty state
+                setLogs([]);
             }
             
             setIsLoading(false);
@@ -244,35 +179,24 @@ export default function AuditLogsPage() {
         setFilteredLogs(filtered);
     }, [logs, searchQuery, selectedActorType, selectedAction, selectedResourceType, dateRange]);
 
-    // Live mode - real-time polling or mock updates
+    // Live mode - real-time polling for new logs
     useEffect(() => {
         if (!isLiveMode) return;
 
         const interval = setInterval(async () => {
-            if (useMockData) {
-                // Mock mode: randomly add new log entries
-                if (Math.random() > 0.7) {
-                    const newLog = generateMockLogs(1)[0];
-                    newLog.id = `log_${Date.now()}`;
-                    newLog.timestamp = new Date().toISOString();
-                    setLogs(prev => [newLog, ...prev]);
-                    setNewLogCount(prev => prev + 1);
-                }
-            } else {
-                // Real API mode: poll for new logs since last fetch
-                if (lastFetchTime.current) {
-                    const newLogs = await fetchLogs(lastFetchTime.current);
-                    if (newLogs && newLogs.length > 0) {
-                        setLogs(prev => [...newLogs, ...prev]);
-                        setNewLogCount(prev => prev + newLogs.length);
-                        lastFetchTime.current = newLogs[0].timestamp;
-                    }
+            // Real API mode: poll for new logs since last fetch
+            if (lastFetchTime.current) {
+                const newLogs = await fetchLogs(lastFetchTime.current);
+                if (newLogs && newLogs.length > 0) {
+                    setLogs(prev => [...newLogs, ...prev]);
+                    setNewLogCount(prev => prev + newLogs.length);
+                    lastFetchTime.current = newLogs[0].timestamp;
                 }
             }
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [isLiveMode]);
+    }, [isLiveMode, fetchLogs]);
 
     // Clear new log notification on scroll to top
     const handleScroll = useCallback(() => {
@@ -747,15 +671,6 @@ export default function AuditLogsPage() {
                     <span>AI Decisions: {filteredLogs.filter(l => l.decision).length}</span>
                     <span>•</span>
                     <span>User Actions: {filteredLogs.filter(l => l.actor_type === 'user').length}</span>
-                    {useMockData && (
-                        <>
-                            <span>•</span>
-                            <span className="text-amber-400 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
-                                Demo Mode
-                            </span>
-                        </>
-                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <Lock className="w-3 h-3" />

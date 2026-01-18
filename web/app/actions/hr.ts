@@ -145,7 +145,7 @@ export async function getCompanyActivity() {
                 id: log.id,
                 action: log.action,
                 created_at: log.created_at,
-                actor_name: log.actor.full_name,
+                actor_name: log.actor?.full_name || (log.details as any)?.actor_name || 'System',
                 change_summary: (log.details as any)?.summary || log.action
             }))
         };

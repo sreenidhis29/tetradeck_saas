@@ -341,15 +341,15 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-2xl font-bold text-white">System Configuration</h2>
-                                <p className="text-slate-400 text-sm">Review the active operational constraints for your workspace.</p>
+                                <p className="text-slate-400 text-sm">These are the default operational constraints. You can customize them after setup.</p>
                             </div>
                             <div className="px-3 py-1 bg-[#00f2ff]/10 text-[#00f2ff] text-xs font-mono rounded border border-[#00f2ff]/20">
-                                STATIC ENGINE v1.0
+                                DEFAULT POLICIES
                             </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                            {/* 14 Static Constraints Demo */}
+                            {/* Default Policy Constraints - Can be customized after setup */}
                             {[
                                 { name: "Max Consecutive Leaves", val: "10 Days", desc: "Hard cap on single request duration." },
                                 { name: "Notice Period", val: "14 Days", desc: "Minimum lead time for non-emergency leaves." },
