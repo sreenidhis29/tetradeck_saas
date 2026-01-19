@@ -1,0 +1,107 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Leave Policy Constraints",
+    "type": "object",
+    "properties": {
+        "RULE001": {
+            "title": "Maximum Leave Duration",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "limits": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "RULE002": {
+            "title": "Leave Balance Check",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
+        "RULE003": {
+            "title": "Minimum Team Coverage",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "min_coverage_percent": {
+                    "type": "integer",
+                    "default": 60
+                }
+            }
+        },
+        "RULE004": {
+            "title": "Maximum Concurrent Leave",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "max_concurrent": {
+                    "type": "integer",
+                    "default": 2
+                }
+            }
+        },
+        "RULE006": {
+            "title": "Advance Notice Requirement",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "notice_days": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "RULE007": {
+            "title": "Consecutive Leave Limit",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "max_consecutive": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "RULE013": {
+            "title": "Monthly Leave Quota",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "max_per_month": {
+                    "type": "integer",
+                    "default": 5
+                }
+            }
+        }
+    }
+}

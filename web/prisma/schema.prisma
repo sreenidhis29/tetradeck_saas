@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Enums
+enum UnitType {
+  company
+  division
+  department
+  team
+  sub_team
+}
+
+enum Gender {
+  M
+  F
+  O
+}
+
+enum LeaveStatus {
+  draft
+  pending
+  approved
+  rejected
+  cancelled
+  escalated
+}
+
+enum PaymentStatus {
+  pending
+  processed
+  paid
+  failed
+}
+
+enum DocType {
+  passport
+  contract
+  id_proof
+  tax_form
+  other
+}
+
+enum AIRecommendation {
+  approve
+  reject
+  review
+  escalate
+}
+
+enum UserRole {
+  hr
+  employee
+  manager
+  admin
+}
+
+// 1. Organization Structure
+model OrganizationUnit {
+  unit_id        Int               @id @default(autoincrement())
+  unit_code      String            @unique
+  unit_name      String
+  unit_type      UnitType
+  parent_unit_id Int?
+  head_emp_id    String?
+  country_code   String            @default("IN")
+  location       String?
+  cost_center    String?
+  is_active      Boolean           @default(true)
+  created_at     DateTime          @default(now())
+
+  parent   OrganizationUnit?  @relation("OrgHierarchy", fields: [parent_unit_id], references: [unit_id])
+  children OrganizationUnit[] @relation("OrgHierarchy")
+
+  @@map("organization_units")
+}
+
+// 2. Job Levels
+model JobLevel {
+  level_id             Int     @id @default(autoincrement())
+  level_code           String  @unique
+  level_name           String
+  level_rank           Int
+  can_approve_leave    Boolean @default(false)
+  max_reportees        Int     @default(0)
+  min_experience_years Int     @default(0)
+  is_management        Boolean @default(false)
+  is_executive         Boolean @default(false)
+
+  @@map("job_levels")
+}
+
+// 3. Employees
+model Employee {
+  emp_id          String    @id @unique
+  full_name       String
+  email           String    @unique
+  department      String?
+  position        String?
+  manager_id      String?
+  hire_date       DateTime?
+  employment_type String?
+  work_location   String?
+  level_code      String?   @default("L3")
+  country_code    String?   @default("IN")
+  gender          Gender?
+  role            UserRole  @default(employee)
+  is_active       Boolean   @default(true)
+
+  // Auth & Integrations
+  clerk_id             String? @unique
+  google_id            String?
+  google_access_token  String?
+  google_refresh_token String?
+  slack_user_id        String?
+
+  // Relations
+  manager            Employee?          @relation("Manager", fields: [manager_id], references: [emp_id])
+  reports            Employee[]         @relation("Manager")
+  leave_requests     LeaveRequest[]
+  leave_balances     LeaveBalance[]
+  approval_hierarchy ApprovalHierarchy?
+  attendances        Attendance[]
+  documents          Document[]
+  payrolls           Payroll[]
+
+  // Organization/Company Link
+  org_id  String?
+  company Company? @relation(fields: [org_id], references: [id])
+
+  // Onboarding
+  terms_accepted_at DateTime?
+
+  // Audits (Actions performed by this employee)
+  audits_triggered AuditLog[] @relation("Actor")
+
+  @@map("employees")
+}
+
+// 4. Approval Hierarchy
+model ApprovalHierarchy {
+  hierarchy_id    Int      @id @default(autoincrement())
+  emp_id          String   @unique
+  level1_approver String
+  level2_approver String?
+  level3_approver String?
+  level4_approver String?
+  hr_partner      String?
+  effective_from  DateTime
+  effective_to    DateTime @default(dbgenerated("'2099-12-31'::date"))
+  is_active       Boolean  @default(true)
+
+  employee Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@map("approval_hierarchy")
+}
+
+// 5. Leave Requests (Renamed from _enterprise)
+model LeaveRequest {
+  request_id   String   @id
+  emp_id       String
+  country_code String
+  leave_type   String
+  start_date   DateTime
+  end_date     DateTime
+  total_days   Decimal  @db.Decimal(5, 2)
+  working_days Decimal  @db.Decimal(5, 2)
+  is_half_day  Boolean  @default(false)
+  reason       String   @db.Text
+
+  // AI Analysis
+  ai_recommendation AIRecommendation?
+  ai_confidence     Decimal?          @db.Decimal(5, 4)
+  ai_analysis_json  Json?
+
+  // Workflow
+  status           LeaveStatus @default(pending)
+  current_approver String?
+
+  // SLAs
+  sla_deadline     DateTime?
+  sla_breached     Boolean   @default(false)
+  escalation_count Int       @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  employee Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@index([emp_id])
+  @@index([status])
+  @@map("leave_requests") // CLEANED UP
+}
+
+// 7. Leave Balances (Renamed from _v2)
+model LeaveBalance {
+  balance_id   Int    @id @default(autoincrement())
+  emp_id       String
+  country_code String
+  leave_type   String
+  year         Int
+
+  annual_entitlement Decimal @db.Decimal(5, 2)
+  carried_forward    Decimal @default(0) @db.Decimal(5, 2)
+  used_days          Decimal @default(0) @db.Decimal(5, 2)
+  pending_days       Decimal @default(0) @db.Decimal(5, 2)
+
+  employee Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@unique([emp_id, leave_type, year])
+  @@map("leave_balances") // CLEANED UP
+}
+
+// 8. Multi-Tenancy
+model Company {
+  id         String   @id @default(uuid())
+  name       String
+  code       String   @unique
+  industry   String?
+  admin_id   String?
+  created_at DateTime @default(now())
+
+  employees Employee[]
+  policies  ConstraintPolicy[]
+  audit_logs AuditLog[]
+
+  // Metadata
+  size     String?
+  location String?
+  website  String?
+
+  // Legal
+  legal_agreed_at DateTime?
+
+  @@map("companies")
+}
+
+// 9. Policies
+model ConstraintPolicy {
+  id         String   @id @default(uuid())
+  org_id     String
+  name       String   @default("Default Policy")
+  rules      Json
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  organization Company @relation(fields: [org_id], references: [id])
+
+  @@map("constraint_policies")
+}
+
+// 10. Audit Logs (Enterprise-Grade - Immutable & Tamper-Proof)
+model AuditLog {
+  id               String   @id @default(uuid())
+  
+  // WHO - Actor Information
+  actor_type       String   @default("user") // "user", "system", "ai"
+  actor_id         String   // Employee ID or system identifier
+  actor_role       String?  // Role at time of action (hr_manager, employee, etc.)
+  
+  // WHAT - Action Details
+  action           String   // e.g. "LEAVE_CREATED", "EMPLOYEE_JOINED", "AI_DECISION"
+  entity_type      String   // e.g. "LeaveRequest", "Employee", "Attendance"
+  entity_id        String   // ID of the modified entity
+  resource_name    String?  // Human-readable name of resource
+  previous_state   Json?    // State before change (for updates)
+  new_state        Json?    // State after change (for updates)
+  details          Json?    // Additional context/metadata
+  
+  // WHEN - Timestamp with precision
+  created_at       DateTime @default(now()) @db.Timestamptz(3)
+  
+  // WHERE - Origin Information
+  ip_address       String?  // Client IP address
+  user_agent       String?  // Browser/client info
+  request_id       String?  // Unique request correlation ID
+  
+  // WHY - AI Decision Logging
+  decision         String?  // "approved", "rejected", "pending_review"
+  decision_reason  String?  // Human-readable explanation
+  confidence_score Float?   // AI confidence (0.0-1.0)
+  model_version    String?  // AI model version used
+  rules_evaluated  Json?    // List of rules checked by AI
+  
+  // Organization
+  target_org       String   // Company ID
+  
+  // Integrity - Tamper-proof
+  integrity_hash   String?  // SHA-256 hash of log entry
+  prev_hash        String?  // Hash of previous entry (chain)
+  
+  // Relations
+  actor            Employee? @relation("Actor", fields: [actor_id], references: [emp_id])
+  company          Company  @relation(fields: [target_org], references: [id])
+
+  // Indexes for fast querying
+  @@index([created_at])
+  @@index([actor_id])
+  @@index([entity_type, entity_id])
+  @@index([action])
+  @@index([target_org, created_at])
+  
+  @@map("audit_logs")
+}
+
+// 11. Attendance (NEW)
+model Attendance {
+  id          String    @id @default(uuid())
+  emp_id      String
+  date        DateTime  @db.Date
+  check_in    DateTime?
+  check_out   DateTime?
+  total_hours Decimal?  @db.Decimal(4, 2)
+  status      String    // PRESENT, ABSENT, LATE, HALF_DAY
+  
+  employee    Employee  @relation(fields: [emp_id], references: [emp_id])
+
+  @@unique([emp_id, date])
+  @@map("attendance")
+}
+
+// 12. Payroll (NEW)
+model Payroll {
+  id             String        @id @default(uuid())
+  emp_id         String
+  month          Int
+  year           Int
+  basic_salary   Decimal       @db.Decimal(10, 2)
+  allowances     Decimal       @db.Decimal(10, 2)
+  deductions     Decimal       @db.Decimal(10, 2)
+  net_pay        Decimal       @db.Decimal(10, 2)
+  status         PaymentStatus @default(pending)
+  processed_date DateTime?
+
+  employee Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@unique([emp_id, month, year])
+  @@map("payroll")
+}
+
+// 13. Documents (NEW)
+model Document {
+  id          String   @id @default(uuid())
+  emp_id      String
+  type        DocType
+  name        String
+  file_url    String
+  verified    Boolean  @default(false)
+  uploaded_at DateTime @default(now())
+
+  employee Employee @relation(fields: [emp_id], references: [emp_id])
+
+  @@map("documents")
+}
+
+// 14. Company Settings (Holiday Calendar Mode)
+model CompanySettings {
+  id                  String   @id @default(uuid())
+  company_id          String   @unique
+  holiday_mode        String   @default("auto") // "auto" or "manual"
+  country_code        String   @default("IN")
+  custom_holidays     Json?    // For additional custom holidays
+  blocked_dates       Json?    // Dates blocked for leave requests
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+// 15. Public Holidays Cache
+model PublicHoliday {
+  id           String   @id @default(uuid())
+  date         DateTime @db.Date
+  name         String
+  local_name   String?
+  country_code String
+  year         Int
+  is_global    Boolean  @default(true)
+  types        Json?
+  cached_at    DateTime @default(now())
+
+  @@unique([date, country_code])
+  @@map("public_holidays")
+}
