@@ -1,9 +1,0 @@
-# Python dependencies for AI services with LLM support
-numpy
-flask
-flask-cors
-mysql-connector-python
-
-# LLM Providers (install both for maximum compatibility)
-groq>=0.4.0
-openai>=1.0.0
