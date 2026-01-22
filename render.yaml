@@ -1,12 +1,30 @@
 services:
+  # ============================================
+  # PYTHON CONSTRAINT ENGINE (AI Backend)
+  # ============================================
   - type: web
-    name: constraint-engine
+    name: continuum-constraint-engine
     env: python
-    region: ohio
+    region: oregon
     plan: free
     rootDir: web/backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -b 0.0.0.0:$PORT constraint_engine:app
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: "3.9.0"
+        value: "3.11"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: continuum-db
+          property: connectionString
+      - key: FLASK_ENV
+        value: production
+
+databases:
+  # ============================================
+  # POSTGRESQL DATABASE (Optional - use Supabase instead)
+  # ============================================
+  - name: continuum-db
+    plan: free
+    region: oregon

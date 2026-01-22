@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "name": "continuum-hr",
-  "regions": ["iad1"],
+  "regions": ["bom1"],
   "framework": "nextjs",
   "buildCommand": "npx prisma generate && next build",
   "installCommand": "npm install",
@@ -10,7 +10,11 @@
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk_publishable_key",
     "CLERK_SECRET_KEY": "@clerk_secret_key",
     "DATABASE_URL": "@database_url",
-    "DIRECT_URL": "@direct_url"
+    "DIRECT_URL": "@direct_url",
+    "NEXT_PUBLIC_CONSTRAINT_ENGINE_URL": "@constraint_engine_url",
+    "RAZORPAY_KEY_ID": "@razorpay_key_id",
+    "RAZORPAY_KEY_SECRET": "@razorpay_key_secret",
+    "NEXT_PUBLIC_RAZORPAY_KEY_ID": "@razorpay_key_id"
   },
   "headers": [
     {
