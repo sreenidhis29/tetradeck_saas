@@ -19,14 +19,42 @@ export default async function OnboardingPage(props: { searchParams: Promise<{ in
 
     const employee = syncRes.employee;
 
-    // If fully onboarded, redirect away
-    if (employee.terms_accepted_at && employee.org_id) {
-        if (employee.position?.includes("HR") || employee.position?.includes("Admin")) {
+    // If employee is pending HR approval, redirect to pending page
+    if ((employee as any).onboarding_status === "pending_approval") {
+        return redirect("/employee/pending");
+    }
+
+    // If fully onboarded and approved, check for welcome/tutorial
+    if (employee.terms_accepted_at && employee.org_id && (employee as any).approval_status === "approved") {
+        // Check if we need to show welcome animation
+        if (!(employee as any).welcome_shown) {
+            if ((employee as any).role === "hr" || employee.position?.includes("HR") || employee.position?.includes("Admin")) {
+                return redirect("/hr/welcome");
+            }
+            return redirect("/employee/welcome");
+        }
+
+        // Otherwise go to dashboard
+        if ((employee as any).role === "hr" || employee.position?.includes("HR") || employee.position?.includes("Admin")) {
             return redirect("/hr/dashboard");
         }
         return redirect("/employee/dashboard");
     }
 
-    // Pass necessary props if needed
-    return <OnboardingFlow user={JSON.parse(JSON.stringify(employee))} intent={searchParams.intent || 'employee'} />;
+    // For HR who just registered, they're auto-approved
+    if (employee.terms_accepted_at && employee.org_id && (employee as any).role === "hr") {
+        if (!(employee as any).welcome_shown) {
+            return redirect("/hr/welcome");
+        }
+        return redirect("/hr/dashboard");
+    }
+
+    // Pass necessary props for onboarding flow
+    return (
+        <OnboardingFlow 
+            user={JSON.parse(JSON.stringify(employee))} 
+            intent={searchParams.intent || 'employee'}
+            savedData={(syncRes as any).onboardingData || null}
+        />
+    );
 }

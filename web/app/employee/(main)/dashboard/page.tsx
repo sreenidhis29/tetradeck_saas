@@ -2,12 +2,23 @@
 
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { Clock, Calendar, FileText, Activity, LogIn, LogOut, CheckCircle2, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Clock, Calendar, FileText, Activity, LogIn, LogOut, CheckCircle2, Sparkles, Lock, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getEmployeeDashboardStats, analyzeLeaveRequest, getTodayAttendance, checkIn, checkOut } from '@/app/actions/employee';
+import { checkFeatureAccess } from '@/app/actions/onboarding';
 
 export default function EmployeeDashboard() {
     const { user } = useUser();
+    const router = useRouter();
+    
+    // Access control state
+    const [accessStatus, setAccessStatus] = useState<{
+        hasAccess: boolean;
+        isPending: boolean;
+        loading: boolean;
+    }>({ hasAccess: false, isPending: false, loading: true });
+    
     const [data, setData] = useState({
         leaveBalance: 0,
         annualBalance: 0,
@@ -37,7 +48,33 @@ export default function EmployeeDashboard() {
     const [checkInLoading, setCheckInLoading] = useState(false);
     const [checkInMessage, setCheckInMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+    // Check access and redirect if needed
     useEffect(() => {
+        const checkAccess = async () => {
+            const result = await checkFeatureAccess();
+            
+            // If not approved, check if pending
+            if (!result.hasAccess && result.reason === "pending_approval") {
+                setAccessStatus({ hasAccess: false, isPending: true, loading: false });
+            } else if (!result.hasAccess) {
+                // Not authenticated or no profile
+                router.push("/employee/sign-in");
+            } else {
+                // Check if we need to show welcome/tutorial
+                if ((result as any).showWelcome) {
+                    router.push("/employee/welcome");
+                    return;
+                }
+                setAccessStatus({ hasAccess: true, isPending: false, loading: false });
+            }
+        };
+        checkAccess();
+    }, [router]);
+
+    useEffect(() => {
+        // Only fetch data if user has access
+        if (!accessStatus.hasAccess || accessStatus.loading) return;
+        
         const fetchData = async () => {
             const [statsRes, attendanceRes] = await Promise.all([
                 getEmployeeDashboardStats(),
@@ -71,9 +108,14 @@ export default function EmployeeDashboard() {
             setLoading(false);
         };
         fetchData();
-    }, []);
+    }, [accessStatus.hasAccess, accessStatus.loading]);
 
     const handleAskAI = async () => {
+        // Block if pending approval
+        if (accessStatus.isPending) {
+            setAiResult({ blocked: true, message: "AI features are locked until your account is approved." });
+            return;
+        }
         if (!query.trim()) return;
         setAiLoading(true);
         setAiResult(null);
@@ -88,6 +130,11 @@ export default function EmployeeDashboard() {
     };
 
     const handleCheckIn = async () => {
+        // Block if pending approval
+        if (accessStatus.isPending) {
+            setCheckInMessage({ type: 'error', text: 'Check-in is locked until your account is approved.' });
+            return;
+        }
         setCheckInLoading(true);
         setCheckInMessage(null);
         try {
@@ -132,6 +179,19 @@ export default function EmployeeDashboard() {
         setTimeout(() => setCheckInMessage(null), 3000);
     };
 
+    // Show loading state
+    if (accessStatus.loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <motion.div
+                    className="w-10 h-10 border-2 border-[#00f2ff] border-t-transparent rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+            </div>
+        );
+    }
+
     const stats = [
         { label: 'Leave Balance', value: `${Math.round(data.annualBalance)} Days`, icon: <Calendar />, color: 'from-blue-500 to-blue-600' },
         { label: 'Attendance', value: data.attendance, icon: <Clock />, color: 'from-emerald-500 to-emerald-600' },
@@ -141,6 +201,31 @@ export default function EmployeeDashboard() {
 
     return (
         <div className="max-w-6xl mx-auto">
+            {/* Pending Approval Banner */}
+            {accessStatus.isPending && (
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-amber-500/20 rounded-xl">
+                            <AlertTriangle className="w-6 h-6 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-amber-200 font-semibold">Account Pending Approval</h3>
+                            <p className="text-slate-400 text-sm">
+                                Your registration is awaiting HR approval. Some features are temporarily locked.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 rounded-xl">
+                            <Lock className="w-4 h-4 text-amber-400" />
+                            <span className="text-amber-300 text-sm font-medium">Limited Access</span>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             <header className="mb-12">
                 <motion.h1
                     initial={{ opacity: 0, y: -20 }}

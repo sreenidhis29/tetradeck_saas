@@ -82,9 +82,18 @@ export default async function CompanyProfilePage() {
                         </div>
                         <div>
                             <label className="text-sm text-slate-500 block mb-1">Website</label>
-                            <div className="text-cyan-400 hover:underline cursor-pointer truncate">
-                                {company.website || "N/A"}
-                            </div>
+                            {company.website && company.website !== "N/A" ? (
+                                <a 
+                                    href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-cyan-400 hover:underline truncate block"
+                                >
+                                    {company.website}
+                                </a>
+                            ) : (
+                                <span className="text-slate-500">Not set</span>
+                            )}
                         </div>
                     </div>
 

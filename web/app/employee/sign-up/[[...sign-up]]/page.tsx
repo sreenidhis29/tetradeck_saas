@@ -11,7 +11,7 @@ export default function EmployeeSignUpPage() {
 
                 <div className="relative z-10 w-full max-w-lg h-[600px]">
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-20">
-                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">TetraDeck</h2>
+                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">Continuum</h2>
                         <p className="text-[#00f2ff] font-mono text-sm tracking-widest uppercase">Employee Access</p>
                     </div>
 

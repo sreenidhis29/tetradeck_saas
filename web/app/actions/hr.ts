@@ -455,7 +455,8 @@ export async function getCompanyEmployees() {
         const employees = await prisma.employee.findMany({
             where: {
                 org_id: employee.org_id,
-                role: { notIn: ['hr', 'admin'] }
+                role: { notIn: ['hr', 'admin'] },
+                approval_status: 'approved'  // Only show approved employees
             },
             orderBy: { full_name: 'asc' },
             include: {

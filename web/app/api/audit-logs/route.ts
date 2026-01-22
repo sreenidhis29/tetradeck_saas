@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Employee not found" }, { status: 404 });
         }
 
-        // Only HR managers and admins can access audit logs
-        if (!["hr_manager", "admin", "super_admin"].includes(employee.role || "")) {
+        // Only HR and admins can access audit logs
+        if (!["hr", "hr_manager", "admin", "super_admin", "manager"].includes(employee.role || "")) {
             return NextResponse.json({ error: "Access denied - HR role required" }, { status: 403 });
         }
 

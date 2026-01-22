@@ -311,7 +311,7 @@ export async function getEmployeeProfile() {
                 department: employee.department || "Not Assigned",
                 position: employee.position || "Staff",
                 join_date: (employee.hire_date || new Date()).toISOString(),
-                company: employee.company?.name || "TetraDeck",
+                company: employee.company?.name || "Continuum",
                 status: employee.is_active ? "Active" : "Inactive",
                 manager: employee.manager_id || "N/A"
             }
@@ -345,14 +345,23 @@ export async function getAttendanceRecords(limit = 30) {
 
         return {
             success: true,
-            records: records.map(r => ({
-                id: r.id,
-                date: r.date.toISOString(),
-                check_in: r.check_in?.toISOString() || null,
-                check_out: r.check_out?.toISOString() || null,
-                total_hours: r.total_hours ? Number(r.total_hours) : null,
-                status: r.status
-            }))
+            records: records.map(r => {
+                // Format date as YYYY-MM-DD in local timezone to avoid date shifting
+                const dateObj = new Date(r.date);
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const localDateStr = `${year}-${month}-${day}`;
+                
+                return {
+                    id: r.id,
+                    date: localDateStr,
+                    check_in: r.check_in?.toISOString() || null,
+                    check_out: r.check_out?.toISOString() || null,
+                    total_hours: r.total_hours ? Number(r.total_hours) : null,
+                    status: r.status
+                };
+            })
         };
     } catch (error) {
         console.error("Attendance Fetch Error:", error);
@@ -372,9 +381,9 @@ export async function getTodayAttendance() {
         if (!employee) return { success: false, error: "Employee not found" };
 
         const now = new Date();
-        // Use UTC date to avoid timezone issues
-        const todayStr = now.toISOString().split('T')[0];
-        const today = new Date(todayStr + 'T00:00:00.000Z');
+        // Use local date - set to midnight of current local day
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const attendance = await prisma.attendance.findUnique({
             where: {
@@ -423,9 +432,9 @@ export async function checkIn() {
         if (!employee) return { success: false, error: "Employee not found" };
 
         const now = new Date();
-        // Use UTC date to avoid timezone issues
-        const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const today = new Date(todayStr + 'T00:00:00.000Z');
+        // Use local date - set to midnight of current local day
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         // Check if already checked in
         const existing = await prisma.attendance.findUnique({

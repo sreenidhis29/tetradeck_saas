@@ -35,6 +35,7 @@ export default function Sidebar() {
     const hrLinks = [
         { href: "/hr/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { href: "/hr/company", label: "Profile", icon: Building2 },
+        { href: "/hr/employee-registrations", label: "New Registrations", icon: UserPlus },
         { href: "/hr/leave-requests", label: "Leave Requests", icon: FileText },
         { href: "/hr/attendance", label: "Attendance", icon: Clock },
         { href: "/hr/employees", label: "Employees", icon: Users },
@@ -61,7 +62,7 @@ export default function Sidebar() {
         <aside className="w-[280px] fixed h-screen bg-[#0E0E14] backdrop-blur-xl border-r border-white/10 flex flex-col z-50">
             <div className="p-8">
                 <h1 className="text-2xl font-bold text-white mb-2 tracking-tighter">
-                    TetraDeck
+                    Continuum
                 </h1>
                 <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-2 py-1 rounded-full border ${isHR ? 'border-pink-500/30 text-pink-500 bg-pink-500/10' : 'border-violet-500/30 text-violet-500 bg-violet-500/10'}`}>

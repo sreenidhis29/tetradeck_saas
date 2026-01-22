@@ -28,7 +28,7 @@ export default async function Home() {
         </div>
 
         <h1 className="text-7xl font-bold mb-6 bg-gradient-to-br from-white via-purple-200 to-purple-400 bg-clip-text text-transparent tracking-tighter drop-shadow-2xl">
-          TetraDeck
+          Continuum
         </h1>
         <p className="text-xl text-slate-400 mb-16 max-w-2xl mx-auto leading-relaxed">
           The next-generation workforce management engine. <br />

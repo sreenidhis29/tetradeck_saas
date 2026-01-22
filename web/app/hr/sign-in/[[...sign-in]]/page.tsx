@@ -11,7 +11,7 @@ export default function HRSignInPage() {
 
                 <div className="relative z-10 w-full max-w-lg h-[600px]">
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center z-20">
-                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">TetraDeck</h2>
+                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tighter">Continuum</h2>
                         <p className="text-purple-400 font-mono text-sm tracking-widest uppercase">HR Administration</p>
                     </div>
 
@@ -49,7 +49,7 @@ export default function HRSignInPage() {
             <div className="flex items-center justify-center p-8 bg-[#0a0a0f] relative">
                 <div className="w-full max-w-md relative z-10">
                     <div className="mb-8 lg:hidden text-center">
-                        <h1 className="text-3xl font-bold text-white tracking-tighter">TetraDeck HR</h1>
+                        <h1 className="text-3xl font-bold text-white tracking-tighter">Continuum HR</h1>
                     </div>
 
                     <SignIn

@@ -103,16 +103,225 @@ async function getEmailTransporter() {
 // Email Templates
 export const EmailTemplates = {
     /**
+     * Registration Approved Email - Sent when HR approves employee registration
+     */
+    registrationApproved: (params: {
+        employeeName: string;
+        companyName: string;
+        position?: string;
+        department?: string;
+        approvedBy: string;
+    }) => ({
+        subject: `🎉 Your registration has been approved - ${params.companyName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">🎉 Registration Approved!</h1>
+                </div>
+                <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
+                    <h2 style="color: #10b981;">Welcome to ${params.companyName}, ${params.employeeName}!</h2>
+                    <p>Great news! Your registration has been approved by ${params.approvedBy}.</p>
+                    
+                    <div style="background: #334155; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <table style="width: 100%; color: #e2e8f0;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Status:</td>
+                                <td style="padding: 8px 0; font-weight: bold; color: #10b981;">✅ Approved</td>
+                            </tr>
+                            ${params.position ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Position:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.position}</td>
+                            </tr>
+                            ` : ''}
+                            ${params.department ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Department:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.department}</td>
+                            </tr>
+                            ` : ''}
+                        </table>
+                    </div>
+                    
+                    <p>You can now access all employee features in your portal.</p>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/employee/dashboard" style="display: inline-block; background: #10b981; color: white; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: bold;">Go to Dashboard</a>
+                    </div>
+                </div>
+                <div style="padding: 15px; background: #0f172a; text-align: center;">
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
+                </div>
+            </div>
+        `
+    }),
+
+    /**
+     * Registration Rejected Email - Sent when HR rejects employee registration
+     */
+    registrationRejected: (params: {
+        employeeName: string;
+        companyName: string;
+        rejectedBy: string;
+        reason: string;
+    }) => ({
+        subject: `Registration Update - ${params.companyName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #ef4444, #b91c1c); padding: 30px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">Registration Update</h1>
+                </div>
+                <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
+                    <h2 style="color: #fff;">Hello ${params.employeeName},</h2>
+                    <p>We regret to inform you that your registration request for ${params.companyName} was not approved.</p>
+                    
+                    <div style="background: #7f1d1d; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                        <p style="margin: 0 0 10px; color: #fca5a5; font-weight: bold;">Reason:</p>
+                        <p style="margin: 0; color: #fecaca;">${params.reason}</p>
+                    </div>
+                    
+                    <p style="color: #94a3b8;">If you believe this was a mistake or have questions, please contact HR directly.</p>
+                </div>
+                <div style="padding: 15px; background: #0f172a; text-align: center;">
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
+                </div>
+            </div>
+        `
+    }),
+
+    /**
+     * HR Notification - New Employee Registration
+     */
+    hrNewRegistration: (params: {
+        employeeName: string;
+        employeeEmail: string;
+        position?: string;
+        department?: string;
+        registeredAt: string;
+    }) => ({
+        subject: `👤 New Employee Registration - ${params.employeeName}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 25px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">👤 New Registration</h1>
+                </div>
+                <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
+                    <h2 style="color: #f59e0b;">New Employee Pending Approval</h2>
+                    <p>A new employee has registered and is awaiting your review:</p>
+                    
+                    <div style="background: #334155; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <table style="width: 100%; color: #e2e8f0;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Name:</td>
+                                <td style="padding: 8px 0; font-weight: bold; color: #fff;">${params.employeeName}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Email:</td>
+                                <td style="padding: 8px 0; color: #0ea5e9;">${params.employeeEmail}</td>
+                            </tr>
+                            ${params.position ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Position:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.position}</td>
+                            </tr>
+                            ` : ''}
+                            ${params.department ? `
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Department:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.department}</td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Registered:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.registeredAt}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/hr/employee-registrations" style="display: inline-block; background: #f59e0b; color: #000; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: bold;">Review Registration</a>
+                    </div>
+                </div>
+                <div style="padding: 15px; background: #0f172a; text-align: center;">
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
+                </div>
+            </div>
+        `
+    }),
+
+    /**
+     * HR Notification - New Leave Request
+     */
+    hrNewLeaveRequest: (params: {
+        employeeName: string;
+        leaveType: string;
+        startDate: string;
+        endDate: string;
+        totalDays: number;
+        reason: string;
+        requestedAt: string;
+    }) => ({
+        subject: `🏖️ New Leave Request - ${params.employeeName} (${params.leaveType})`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #0ea5e9, #0284c7); padding: 25px; text-align: center;">
+                    <h1 style="color: white; margin: 0;">🏖️ New Leave Request</h1>
+                </div>
+                <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
+                    <h2 style="color: #0ea5e9;">Leave Request Pending Review</h2>
+                    <p>A new leave request has been submitted:</p>
+                    
+                    <div style="background: #334155; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <table style="width: 100%; color: #e2e8f0;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Employee:</td>
+                                <td style="padding: 8px 0; font-weight: bold; color: #fff;">${params.employeeName}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Leave Type:</td>
+                                <td style="padding: 8px 0; color: #0ea5e9;">${params.leaveType}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Duration:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.startDate} - ${params.endDate}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Total Days:</td>
+                                <td style="padding: 8px 0; color: #10b981; font-weight: bold;">${params.totalDays} day${params.totalDays !== 1 ? 's' : ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Reason:</td>
+                                <td style="padding: 8px 0; color: #fff;">${params.reason || 'Not specified'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94a3b8;">Submitted:</td>
+                                <td style="padding: 8px 0; color: #94a3b8;">${params.requestedAt}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/hr/leave-requests" style="display: inline-block; background: #0ea5e9; color: white; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: bold;">Review Request</a>
+                    </div>
+                </div>
+                <div style="padding: 15px; background: #0f172a; text-align: center;">
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
+                </div>
+            </div>
+        `
+    }),
+
+    /**
      * Check-in Reminder Email
      */
     checkInReminder: (employeeName: string, reminderNumber: number) => ({
         subject: reminderNumber === 1 
-            ? '⏰ Check-in Reminder - TetraDeck' 
-            : '⚠️ Final Check-in Reminder - TetraDeck',
+            ? '⏰ Check-in Reminder - Continuum' 
+            : '⚠️ Final Check-in Reminder - Continuum',
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #0ea5e9, #8b5cf6); padding: 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">TetraDeck</h1>
+                    <h1 style="color: white; margin: 0;">Continuum</h1>
                 </div>
                 <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
                     <h2 style="color: #fff;">⏰ Check-in Reminder ${reminderNumber === 2 ? '(Final)' : ''}</h2>
@@ -135,7 +344,7 @@ export const EmailTemplates = {
                     `}
                 </div>
                 <div style="padding: 15px; background: #0f172a; text-align: center;">
-                    <p style="color: #64748b; margin: 0; font-size: 12px;">TetraDeck HR Management System</p>
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
                 </div>
             </div>
         `
@@ -146,12 +355,12 @@ export const EmailTemplates = {
      */
     checkOutReminder: (employeeName: string, checkInTime: string, reminderNumber: number) => ({
         subject: reminderNumber === 1 
-            ? '☕ Check-out Reminder - TetraDeck' 
-            : '⚠️ Final Check-out Reminder - TetraDeck',
+            ? '☕ Check-out Reminder - Continuum' 
+            : '⚠️ Final Check-out Reminder - Continuum',
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #0ea5e9, #8b5cf6); padding: 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">TetraDeck</h1>
+                    <h1 style="color: white; margin: 0;">Continuum</h1>
                 </div>
                 <div style="padding: 30px; background: #1e293b; color: #e2e8f0;">
                     <h2 style="color: #fff;">☕ Check-out Reminder ${reminderNumber === 2 ? '(Final)' : ''}</h2>
@@ -166,7 +375,7 @@ export const EmailTemplates = {
                     </div>
                 </div>
                 <div style="padding: 15px; background: #0f172a; text-align: center;">
-                    <p style="color: #64748b; margin: 0; font-size: 12px;">TetraDeck HR Management System</p>
+                    <p style="color: #64748b; margin: 0; font-size: 12px;">Continuum HR Management System</p>
                 </div>
             </div>
         `
@@ -868,6 +1077,75 @@ export async function sendAccountActionEmail(
     return sendEmail(employeeEmail, template.subject, template.html);
 }
 
+/**
+ * Send registration approval notification to employee
+ */
+export async function sendRegistrationApprovalEmail(
+    employeeEmail: string,
+    params: {
+        employeeName: string;
+        companyName: string;
+        position?: string;
+        department?: string;
+        approvedBy: string;
+    }
+) {
+    const template = EmailTemplates.registrationApproved(params);
+    return sendEmail(employeeEmail, template.subject, template.html);
+}
+
+/**
+ * Send registration rejection notification to employee
+ */
+export async function sendRegistrationRejectionEmail(
+    employeeEmail: string,
+    params: {
+        employeeName: string;
+        companyName: string;
+        rejectedBy: string;
+        reason: string;
+    }
+) {
+    const template = EmailTemplates.registrationRejected(params);
+    return sendEmail(employeeEmail, template.subject, template.html);
+}
+
+/**
+ * Send HR notification about new employee registration
+ */
+export async function sendHRNewRegistrationEmail(
+    hrEmail: string,
+    params: {
+        employeeName: string;
+        employeeEmail: string;
+        position?: string;
+        department?: string;
+        registeredAt: string;
+    }
+) {
+    const template = EmailTemplates.hrNewRegistration(params);
+    return sendEmail(hrEmail, template.subject, template.html);
+}
+
+/**
+ * Send HR notification about new leave request
+ */
+export async function sendHRNewLeaveRequestEmail(
+    hrEmail: string,
+    params: {
+        employeeName: string;
+        leaveType: string;
+        startDate: string;
+        endDate: string;
+        totalDays: number;
+        reason: string;
+        requestedAt: string;
+    }
+) {
+    const template = EmailTemplates.hrNewLeaveRequest(params);
+    return sendEmail(hrEmail, template.subject, template.html);
+}
+
 export default {
     sendEmail,
     sendCheckInReminderEmail,
@@ -879,5 +1157,9 @@ export default {
     sendSecurityAlertEmail,
     sendWelcomeEmail,
     sendAccountActionEmail,
+    sendRegistrationApprovalEmail,
+    sendRegistrationRejectionEmail,
+    sendHRNewRegistrationEmail,
+    sendHRNewLeaveRequestEmail,
     EmailTemplates
 };

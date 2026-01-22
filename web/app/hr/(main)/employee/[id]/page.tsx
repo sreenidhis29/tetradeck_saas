@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ShieldCheck, Calendar, Activity, TrendingUp, AlertCircle, CheckCircle, Sparkles, ArrowRight, AlertTriangle } from "lucide-react";
+import { EmployeeQuickActions } from "@/components/hr/EmployeeQuickActions";
 
 export default async function EmployeeDeepDivePage({ params }: { params: { id: string } }) {
     // 1. Fetch Data
@@ -219,14 +220,16 @@ export default async function EmployeeDeepDivePage({ params }: { params: { id: s
 
                     <div className="bg-slate-900/50 border border-white/10 p-6 rounded-2xl">
                         <h3 className="font-bold mb-4 text-white">Quick Actions</h3>
-                        <div className="space-y-3">
-                            <button className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-slate-300 transition-colors text-left px-4 flex justify-between items-center group">
-                                Adjust Balance <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                            <button className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-slate-300 transition-colors text-left px-4 flex justify-between items-center group">
-                                View Documents <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                        </div>
+                        <EmployeeQuickActions 
+                            employeeId={employee.emp_id}
+                            employeeName={employee.full_name}
+                            leaveBalances={employee.leave_balances.map(b => ({
+                                leave_type: b.leave_type,
+                                annual_entitlement: Number(b.annual_entitlement),
+                                used_days: Number(b.used_days),
+                                pending_days: Number(b.pending_days)
+                            }))}
+                        />
                     </div>
                 </div>
 

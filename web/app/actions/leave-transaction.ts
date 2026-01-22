@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 import { analyzeLeaveRequest, AIAnalysisResult } from "./leave-constraints";
 import { revalidatePath } from "next/cache";
+import { sendHRNewLeaveRequestEmail, sendLeaveApprovalEmail } from "@/lib/email-service";
 
 export async function submitLeaveRequest(formData: {
     leaveType: string;
@@ -132,6 +133,43 @@ export async function submitLeaveRequest(formData: {
 
             return newRequest;
         });
+
+        // Notify HR about new leave request (if escalated/pending)
+        if (requestStatus === 'escalated') {
+            const hrUsers = await prisma.employee.findMany({
+                where: {
+                    org_id: employee.org_id,
+                    role: 'hr',
+                    is_active: true
+                },
+                select: { email: true }
+            });
+
+            for (const hr of hrUsers) {
+                sendHRNewLeaveRequestEmail(hr.email, {
+                    employeeName: employee.full_name || 'Employee',
+                    leaveType: formData.leaveType,
+                    startDate: formData.startDate,
+                    endDate: formData.endDate,
+                    totalDays: formData.days,
+                    reason: formData.reason,
+                    requestedAt: new Date().toLocaleString()
+                }).catch(err => console.error('HR leave notification failed:', err));
+            }
+        } else if (requestStatus === 'approved') {
+            // Auto-approved: notify employee
+            sendLeaveApprovalEmail(
+                { email: employee.email, full_name: employee.full_name || 'Employee' },
+                {
+                    leaveType: formData.leaveType,
+                    startDate: formData.startDate,
+                    endDate: formData.endDate,
+                    totalDays: formData.days,
+                    approvedBy: 'AI System (Auto-Approved)',
+                    reason: 'Your request meets all policy requirements.'
+                }
+            ).catch(err => console.error('Leave approval email failed:', err));
+        }
 
         revalidatePath("/dashboard"); // Reflect balance change
         return { success: true, request: result, analysis };

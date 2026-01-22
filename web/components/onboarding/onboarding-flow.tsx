@@ -1,43 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, Building2, UserPlus, CheckCircle, ArrowRight, User } from "lucide-react";
-import { acceptTerms, registerCompany, joinCompany, updateEmployeeDetails } from "@/app/actions/onboarding";
+import { ShieldCheck, Building2, UserPlus, CheckCircle, ArrowRight, User, AlertCircle, Clock, Save } from "lucide-react";
+import { acceptTerms, registerCompany, joinCompany, updateEmployeeDetails, saveOnboardingProgress } from "@/app/actions/onboarding";
 import { useRouter } from "next/navigation";
 
-export function OnboardingFlow({ user, intent }: { user: any; intent: string }) {
-    // State initialization based on user status
+interface OnboardingData {
+    department?: string;
+    position?: string;
+    location?: string;
+    companyCode?: string;
+    companyName?: string;
+    industry?: string;
+    size?: string;
+    website?: string;
+}
+
+export function OnboardingFlow({ user, intent, savedData }: { user: any; intent: string; savedData?: OnboardingData | null }) {
     // Normalize intent to lowercase to avoid case-sensitivity issues
     const safeIntent = (intent || "").toLowerCase();
 
-    const [step, setStep] = useState<"legal" | "choice" | "details" | "create" | "constraints" | "join">(() => {
+    // Determine initial step based on user's saved progress
+    const determineInitialStep = (): "legal" | "choice" | "details" | "create" | "constraints" | "join" | "pending_approval" => {
+        // If already pending approval, show pending screen
+        if (user?.onboarding_status === "pending_approval") {
+            return "pending_approval" as any;
+        }
+        
+        // Resume from saved step if available
+        if (user?.onboarding_step) {
+            const savedStep = user.onboarding_step;
+            if (["legal", "choice", "details", "create", "constraints", "join"].includes(savedStep)) {
+                return savedStep as any;
+            }
+        }
+
+        // Otherwise, determine based on terms acceptance
         if (user?.terms_accepted_at) {
-            // If already accepted terms, check where they should go
-            // If employee, they might need to update details first if not done? 
-            // For simplicity, we assume if they hit onboarding again, they might need to join/create.
-            // But adhering to flow: Legal -> Details -> Join
             return safeIntent === 'hr' ? 'create' : safeIntent === 'employee' ? 'details' : 'choice';
         }
         return "legal";
-    });
+    };
+
+    const [step, setStep] = useState<"legal" | "choice" | "details" | "create" | "constraints" | "join" | "pending_approval">(determineInitialStep);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
     const router = useRouter();
 
-    // Form States
-    const [companyName, setCompanyName] = useState("");
-    const [industry, setIndustry] = useState("");
-    const [size, setSize] = useState("");
-    const [location, setLocation] = useState("");
-    const [website, setWebsite] = useState("");
+    // Form States - Initialize from saved data
+    const [companyName, setCompanyName] = useState(savedData?.companyName || "");
+    const [industry, setIndustry] = useState(savedData?.industry || "");
+    const [size, setSize] = useState(savedData?.size || "");
+    const [location, setLocation] = useState(savedData?.location || "");
+    const [website, setWebsite] = useState(savedData?.website || "");
 
-    // Employee Details
-    const [dept, setDept] = useState("");
-    const [position, setPosition] = useState("");
-    const [empLocation, setEmpLocation] = useState("");
+    // Employee Details - Initialize from saved data
+    const [dept, setDept] = useState(savedData?.department || user?.department || "");
+    const [position, setPosition] = useState(savedData?.position || user?.position || "");
+    const [empLocation, setEmpLocation] = useState(savedData?.location || user?.work_location || "");
 
-    const [companyCode, setCompanyCode] = useState("");
+    const [companyCode, setCompanyCode] = useState(savedData?.companyCode || "");
+
+    // Auto-save progress when form data changes (debounced)
+    useEffect(() => {
+        if (step === "details" || step === "create" || step === "join") {
+            const timeoutId = setTimeout(async () => {
+                if (dept || position || empLocation || companyName || companyCode) {
+                    setAutoSaveStatus("saving");
+                    await saveOnboardingProgress(step, {
+                        department: dept,
+                        position: position,
+                        location: empLocation || location,
+                        companyName,
+                        industry,
+                        size,
+                        website,
+                        companyCode,
+                    });
+                    setAutoSaveStatus("saved");
+                    setTimeout(() => setAutoSaveStatus("idle"), 2000);
+                }
+            }, 1000);
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [dept, position, empLocation, companyName, industry, size, website, companyCode, step, location]);
 
     const handleLegalAccept = async () => {
         setLoading(true);
@@ -69,10 +118,15 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
     };
 
     const handleCreateCompany = async () => {
+        if (!companyName || !industry) {
+            setError("Please fill in company name and industry.");
+            return;
+        }
         setLoading(true);
         const res = await registerCompany(companyName, industry, size, location, website);
         if (res.success) {
-            router.push("/hr/dashboard");
+            // HR is auto-approved - redirect to welcome screen
+            router.push("/hr/welcome");
         } else {
             setError(res.error || "Failed");
         }
@@ -80,10 +134,15 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
     };
 
     const handleJoinCompany = async () => {
+        if (!companyCode) {
+            setError("Please enter a company code.");
+            return;
+        }
         setLoading(true);
         const res = await joinCompany(companyCode);
         if (res.success) {
-            router.push("/employee/dashboard");
+            // Employee needs to wait for approval - show pending screen
+            setStep("pending_approval" as any);
         } else {
             setError(res.error || "Failed");
         }
@@ -118,7 +177,7 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
                         </div>
 
                         <div className="space-y-4 text-slate-300 mb-8 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                            <p>Welcome to TetraDeck. Before proceeding, you must agree to our enterprise protocols.</p>
+                            <p>Welcome to Continuum. Before proceeding, you must agree to our enterprise protocols.</p>
                             <ul className="list-disc pl-5 space-y-2 text-sm">
                                 <li><strong>Data Privacy:</strong> All employee data is encrypted at rest and in transit.</li>
                                 <li><strong>Tetra-Tenancy:</strong> Your organization's data is strictly isolated.</li>
@@ -411,6 +470,18 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
                                 />
                             </div>
 
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-amber-200 font-medium text-sm">HR Approval Required</p>
+                                        <p className="text-slate-400 text-sm mt-1">
+                                            After joining, your HR manager must approve your registration before you can access all features.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             {error && <p className="text-red-400 text-sm">{error}</p>}
 
                             <button
@@ -418,11 +489,106 @@ export function OnboardingFlow({ user, intent }: { user: any; intent: string }) 
                                 disabled={loading}
                                 className="w-full py-3 rounded-lg bg-[#00f2ff] text-black font-bold hover:bg-[#00c8d2] transition-all mt-4 shadow-lg shadow-[#00f2ff]/20"
                             >
-                                {loading ? "Verifying..." : "Join Team"}
+                                {loading ? "Verifying..." : "Request to Join Team"}
                             </button>
 
-                            <button onClick={() => setStep("choice")} className="w-full text-center text-slate-500 text-sm mt-4 hover:text-white">Back</button>
+                            <button onClick={() => setStep("details")} className="w-full text-center text-slate-500 text-sm mt-4 hover:text-white">Back</button>
                         </div>
+                    </motion.div>
+                )}
+
+                {/* PENDING APPROVAL SCREEN */}
+                {step === "pending_approval" && (
+                    <motion.div
+                        key="pending"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="z-10 w-full max-w-lg bg-white/5 backdrop-blur-xl border border-amber-500/20 rounded-2xl p-8 shadow-2xl text-center"
+                    >
+                        {/* Animated Clock */}
+                        <div className="relative inline-block mb-6">
+                            <motion.div
+                                className="w-24 h-24 rounded-full bg-amber-500/10 flex items-center justify-center"
+                                animate={{
+                                    boxShadow: [
+                                        "0 0 0 0 rgba(245, 158, 11, 0.3)",
+                                        "0 0 0 20px rgba(245, 158, 11, 0)",
+                                    ],
+                                }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
+                                <Clock className="w-12 h-12 text-amber-400" />
+                            </motion.div>
+                            <motion.div
+                                className="absolute inset-0 rounded-full border-2 border-amber-500/30 border-t-amber-500"
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                            />
+                        </div>
+
+                        <h1 className="text-2xl font-bold text-white mb-2">
+                            Registration Submitted!
+                        </h1>
+
+                        <p className="text-slate-400 mb-6">
+                            Your request to join the team has been sent. Your HR manager will review and approve your registration shortly.
+                        </p>
+
+                        <div className="space-y-3 mb-6">
+                            <div className="flex items-center gap-3 p-4 bg-emerald-500/10 rounded-xl text-left">
+                                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                <span className="text-sm text-slate-300">Profile information saved</span>
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-emerald-500/10 rounded-xl text-left">
+                                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                <span className="text-sm text-slate-300">Company code verified</span>
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-amber-500/10 rounded-xl text-left">
+                                <Clock className="w-5 h-5 text-amber-400" />
+                                <span className="text-sm text-slate-300">Waiting for HR approval</span>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-500 mb-4">
+                            You'll receive an email notification once approved. You can close this page safely.
+                        </p>
+
+                        <button
+                            onClick={() => router.push("/employee/pending")}
+                            className="w-full py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-all"
+                        >
+                            Check Approval Status
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Auto-save indicator */}
+            <AnimatePresence>
+                {autoSaveStatus !== "idle" && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-white/10 backdrop-blur-sm"
+                    >
+                        {autoSaveStatus === "saving" && (
+                            <>
+                                <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                >
+                                    <Save className="w-4 h-4 text-amber-400" />
+                                </motion.div>
+                                <span className="text-sm text-slate-300">Saving progress...</span>
+                            </>
+                        )}
+                        {autoSaveStatus === "saved" && (
+                            <>
+                                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                <span className="text-sm text-slate-300">Progress saved</span>
+                            </>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>

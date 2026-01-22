@@ -96,6 +96,21 @@ model JobLevel {
   @@map("job_levels")
 }
 
+// Enums for Onboarding Status
+enum OnboardingStatus {
+  not_started
+  in_progress
+  pending_approval
+  approved
+  completed
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
 // 3. Employees
 model Employee {
   emp_id          String    @id @unique
@@ -134,8 +149,18 @@ model Employee {
   org_id  String?
   company Company? @relation(fields: [org_id], references: [id])
 
-  // Onboarding
-  terms_accepted_at DateTime?
+  // Onboarding - Enhanced for partial save & HR approval flow
+  terms_accepted_at      DateTime?
+  onboarding_status      OnboardingStatus @default(not_started)
+  onboarding_step        String?          // Current step: "legal", "details", "join", etc.
+  onboarding_data        Json?            // Stores partial form data for resume
+  approval_status        ApprovalStatus   @default(pending)
+  approved_by            String?          // HR who approved
+  approved_at            DateTime?
+  rejection_reason       String?
+  onboarding_completed   Boolean          @default(false)
+  tutorial_completed     Boolean          @default(false)
+  welcome_shown          Boolean          @default(false)
 
   // Audits (Actions performed by this employee)
   audits_triggered AuditLog[] @relation("Actor")
@@ -220,20 +245,36 @@ model LeaveBalance {
 // 8. Multi-Tenancy
 model Company {
   id         String   @id @default(uuid())
+  company_id String   @unique @default(uuid())
   name       String
   code       String   @unique
   industry   String?
   admin_id   String?
   created_at DateTime @default(now())
+  updated_at DateTime @updatedAt @default(now())
 
-  employees Employee[]
-  policies  ConstraintPolicy[]
-  audit_logs AuditLog[]
+  employees     Employee[]
+  policies      ConstraintPolicy[]
+  audit_logs    AuditLog[]
+  subscriptions Subscription[]
+  usage_records UsageRecord[]
+  api_keys      ApiKey[]
+  payments      Payment[]
 
   // Metadata
   size     String?
   location String?
   website  String?
+  
+  // Subscription Tier (cached for quick access)
+  subscription_tier String @default("FREE")
+
+  // Billing
+  stripe_customer_id   String?
+  razorpay_customer_id String?
+  billing_email        String?
+  billing_phone        String?
+  gstin                String? // GST Number for India
 
   // Legal
   legal_agreed_at DateTime?
@@ -388,4 +429,110 @@ model PublicHoliday {
 
   @@unique([date, country_code])
   @@map("public_holidays")
+}
+
+// 16. Waitlist for Marketing
+model Waitlist {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  company_name   String?
+  employee_count String?
+  source         String?  @default("website")
+  status         String   @default("pending") // pending, invited, converted
+  created_at     DateTime @default(now())
+  invited_at     DateTime?
+  notes          String?
+
+  @@map("waitlist")
+}
+
+// 17. Subscription & Billing
+model Subscription {
+  id                       String    @id @default(uuid())
+  subscription_id          String    @unique @default(uuid())
+  org_id                   String
+  plan                     String    @default("FREE") // FREE, STARTER, GROWTH, ENTERPRISE
+  plan_tier                String    @default("FREE") // Duplicate for backwards compatibility
+  status                   String    @default("active") // active, trialing, past_due, canceled
+  billing_cycle            String    @default("monthly") // monthly, yearly
+  stripe_customer_id       String?
+  stripe_subscription_id   String?
+  razorpay_customer_id     String?
+  razorpay_subscription_id String?
+  razorpay_order_id        String?
+  current_period_start     DateTime?
+  current_period_end       DateTime?
+  trial_end                DateTime?
+  cancel_at_period_end     Boolean   @default(false)
+  canceled_at              DateTime?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+
+  company Company @relation(fields: [org_id], references: [id])
+
+  @@map("subscriptions")
+}
+
+// 18. Usage Tracking for Metered Billing
+model UsageRecord {
+  id          String   @id @default(uuid())
+  org_id      String
+  feature     String   // api_call, employee_added, report_generated, etc.
+  quantity    Int      @default(1)
+  recorded_at DateTime @default(now())
+  metadata    Json?
+
+  company Company @relation(fields: [org_id], references: [id])
+
+  @@index([org_id, feature, recorded_at])
+  @@map("usage_records")
+}
+
+// 19. API Keys for External Integrations
+model ApiKey {
+  id         String   @id @default(uuid())
+  org_id     String
+  name       String
+  key        String   @unique
+  is_active  Boolean  @default(true)
+  last_used  DateTime?
+  created_at DateTime @default(now())
+  expires_at DateTime?
+
+  company Company @relation(fields: [org_id], references: [id])
+
+  @@map("api_keys")
+}
+
+// 20. Payment History for Razorpay Transactions
+model Payment {
+  id                    String   @id @default(uuid())
+  org_id                String
+  amount                Int      // Amount in paise
+  currency              String   @default("INR")
+  status                String   // created, captured, failed, refunded
+  razorpay_payment_id   String?  @unique
+  razorpay_order_id     String?
+  razorpay_signature    String?
+  method                String?  // upi, card, netbanking, wallet
+  bank                  String?
+  wallet                String?
+  vpa                   String?  // UPI VPA
+  error_code            String?
+  error_description     String?
+  fee                   Int?     // Razorpay fee in paise
+  tax                   Int?     // GST on Razorpay fee
+  invoice_id            String?  // Razorpay invoice ID
+  international         Boolean  @default(false)
+  refund_status         String?
+  amount_refunded       Int?
+  captured_at           DateTime?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  company Company @relation(fields: [org_id], references: [id])
+
+  @@index([org_id, created_at])
+  @@index([razorpay_order_id])
+  @@map("payments")
 }
