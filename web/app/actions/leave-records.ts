@@ -141,9 +141,12 @@ export async function getMyLeaveRecords(year?: number) {
             year: targetYear
         };
 
-    } catch (error) {
-        console.error("Get My Leave Records Error:", error);
-        return { success: false, error: "Failed to fetch leave records" };
+    } catch (error: any) {
+        console.error("[getMyLeaveRecords] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch leave records: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -307,9 +310,12 @@ export async function getAllLeaveRecords(month: number, year: number) {
             summary
         };
 
-    } catch (error) {
-        console.error("Get All Leave Records Error:", error);
-        return { success: false, error: "Failed to fetch leave records" };
+    } catch (error: any) {
+        console.error("[getAllLeaveRecords] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch leave records: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -490,9 +496,15 @@ export async function getEmployeeLeaveRecord(empId: string, year: number) {
             year
         };
 
-    } catch (error) {
-        console.error("Get Employee Leave Record Error:", error);
-        return { success: false, error: "Failed to fetch employee leave record" };
+    } catch (error: any) {
+        console.error("[getEmployeeLeaveRecord] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Employee not found." };
+        }
+        return { success: false, error: `Failed to fetch employee leave record: ${error?.message || 'Unknown error'}` };
     }
 }
 

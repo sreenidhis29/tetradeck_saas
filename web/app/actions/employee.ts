@@ -156,9 +156,12 @@ export async function getEmployeeDashboardStats() {
             }))
         };
 
-    } catch (error) {
-        console.error("Employee Stats Error:", error);
-        return { success: false, error: "Failed to fetch stats." };
+    } catch (error: any) {
+        console.error("[getEmployeeDashboardStats] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch stats: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -284,9 +287,12 @@ export async function getLeaveHistory() {
                 is_half_day: req.is_half_day || false
             }))
         };
-    } catch (error) {
-        console.error("History Fetch Error:", error);
-        return { success: false, error: "Failed to fetch history" };
+    } catch (error: any) {
+        console.error("[getLeaveHistory] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch history: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -316,9 +322,12 @@ export async function getEmployeeProfile() {
                 manager: employee.manager_id || "N/A"
             }
         };
-    } catch (error) {
-        console.error("Profile Fetch Error:", error);
-        return { success: false, error: "Failed to fetch profile" };
+    } catch (error: any) {
+        console.error("[getEmployeeProfile] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch profile: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -363,9 +372,12 @@ export async function getAttendanceRecords(limit = 30) {
                 };
             })
         };
-    } catch (error) {
-        console.error("Attendance Fetch Error:", error);
-        return { success: false, error: "Failed to fetch attendance" };
+    } catch (error: any) {
+        console.error("[getAttendanceRecords] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch attendance: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -413,9 +425,12 @@ export async function getTodayAttendance() {
             total_hours: attendance.total_hours ? Number(attendance.total_hours) : null,
             status: attendance.status
         };
-    } catch (error) {
-        console.error("Today Attendance Error:", error);
-        return { success: false, error: "Failed to fetch today's attendance" };
+    } catch (error: any) {
+        console.error("[getTodayAttendance] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch today's attendance: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -479,9 +494,12 @@ export async function checkIn() {
             check_in_time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
             isLate
         };
-    } catch (error) {
-        console.error("Check-in Error:", error);
-        return { success: false, error: "Failed to check in" };
+    } catch (error: any) {
+        console.error("[checkIn] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to check in: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -549,9 +567,12 @@ export async function checkOut() {
             check_out_time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
             total_hours: totalHours.toFixed(2)
         };
-    } catch (error) {
-        console.error("Check-out Error:", error);
-        return { success: false, error: "Failed to check out" };
+    } catch (error: any) {
+        console.error("[checkOut] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to check out: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -572,8 +593,11 @@ export async function getHolidays(year?: number) {
                 local_name: h.local_name
             }))
         };
-    } catch (error) {
-        console.error("Holidays Fetch Error:", error);
-        return { success: false, error: "Failed to fetch holidays", holidays: [] };
+    } catch (error: any) {
+        console.error("[getHolidays] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again.", holidays: [] };
+        }
+        return { success: false, error: `Failed to fetch holidays: ${error?.message || 'Unknown error'}`, holidays: [] };
     }
 }

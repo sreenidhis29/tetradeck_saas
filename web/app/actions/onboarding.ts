@@ -113,9 +113,15 @@ export async function saveOnboardingProgress(
 
         revalidatePath("/onboarding");
         return { success: true, savedData: mergedData };
-    } catch (error) {
-        console.error("Save Progress Error:", error);
-        return { success: false, error: "Failed to save progress." };
+    } catch (error: any) {
+        console.error("[saveOnboardingProgress] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Employee profile not found. Please sign out and sign in again." };
+        }
+        return { success: false, error: `Failed to save progress: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -137,8 +143,12 @@ export async function acceptTerms() {
         });
         revalidatePath("/onboarding");
         return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to accept terms." };
+    } catch (error: any) {
+        console.error("[acceptTerms] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to accept terms: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -308,8 +318,12 @@ export async function joinCompany(code: string) {
 
         revalidatePath("/");
         return { success: true, company, needsApproval: true };
-    } catch (error) {
-        return { success: false, error: "Failed to join company." };
+    } catch (error: any) {
+        console.error("[joinCompany] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to join company: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -346,8 +360,12 @@ export async function updateEmployeeDetails(details: { department?: string; posi
             }
         });
         return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to update details." };
+    } catch (error: any) {
+        console.error("[updateEmployeeDetails] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to update details: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -427,9 +445,12 @@ export async function getRegistrationStats() {
                 approvedThisMonth: approvedThisMonthCount
             }
         };
-    } catch (error) {
-        console.error("Get Registration Stats Error:", error);
-        return { success: false, error: "Failed to fetch registration stats." };
+    } catch (error: any) {
+        console.error("[getRegistrationStats] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch registration stats: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -468,9 +489,12 @@ export async function getPendingEmployeeApprovals() {
         });
 
         return { success: true, employees: pendingEmployees };
-    } catch (error) {
-        console.error("Get Pending Approvals Error:", error);
-        return { success: false, error: "Failed to fetch pending approvals." };
+    } catch (error: any) {
+        console.error("[getPendingEmployeeApprovals] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch pending approvals: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -542,9 +566,15 @@ export async function approveEmployee(empId: string) {
 
         revalidatePath("/hr");
         return { success: true, employee };
-    } catch (error) {
-        console.error("Approve Employee Error:", error);
-        return { success: false, error: "Failed to approve employee." };
+    } catch (error: any) {
+        console.error("[approveEmployee] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Employee not found." };
+        }
+        return { success: false, error: `Failed to approve employee: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -599,9 +629,15 @@ export async function rejectEmployee(empId: string, reason: string) {
 
         revalidatePath("/hr");
         return { success: true };
-    } catch (error) {
-        console.error("Reject Employee Error:", error);
-        return { success: false, error: "Failed to reject employee." };
+    } catch (error: any) {
+        console.error("[rejectEmployee] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Employee not found." };
+        }
+        return { success: false, error: `Failed to reject employee: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -620,8 +656,9 @@ export async function markWelcomeShown() {
             data: { welcome_shown: true },
         });
         return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to update." };
+    } catch (error: any) {
+        console.error("[markWelcomeShown] Database error:", error?.message || error);
+        return { success: false, error: `Failed to update: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -640,8 +677,9 @@ export async function markTutorialCompleted() {
             },
         });
         return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to update." };
+    } catch (error: any) {
+        console.error("[markTutorialCompleted] Database error:", error?.message || error);
+        return { success: false, error: `Failed to update: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -696,7 +734,8 @@ export async function checkFeatureAccess() {
             showWelcome: !employee.welcome_shown,
             showTutorial: !employee.tutorial_completed,
         };
-    } catch (error) {
-        return { hasAccess: false, reason: "error" };
+    } catch (error: any) {
+        console.error("[checkFeatureAccess] Database error:", error?.message || error);
+        return { hasAccess: false, reason: "database_error", error: error?.message };
     }
 }

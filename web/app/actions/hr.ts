@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 
 export async function getHRDashboardStats() {
     const user = await currentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) {
+        console.error("[getHRDashboardStats] No authenticated user");
+        return { success: false, error: "Please sign in to continue." };
+    }
 
     try {
         // 1. Get Logged-In HR Employee
@@ -15,8 +18,19 @@ export async function getHRDashboardStats() {
             include: { company: true }
         });
 
-        if (!employee || !employee.company) {
-            return { success: false, error: "No organization found." };
+        if (!employee) {
+            console.error("[getHRDashboardStats] No employee record for clerk_id:", user.id);
+            return { success: false, error: "Your profile was not found. Please complete onboarding." };
+        }
+
+        if (!employee.org_id) {
+            console.error("[getHRDashboardStats] Employee has no org_id:", employee.emp_id);
+            return { success: false, error: "You are not linked to any organization. Please complete onboarding." };
+        }
+
+        if (!employee.company) {
+            console.error("[getHRDashboardStats] Employee org_id exists but company not found:", employee.org_id);
+            return { success: false, error: "Organization data not found. Please contact support." };
         }
 
         const orgId = employee.company.id;
@@ -84,15 +98,27 @@ export async function getHRDashboardStats() {
             }
         };
 
-    } catch (error) {
-        console.error("Dashboard Stats Error:", error);
-        return { success: false, error: "Failed to fetch dashboard data." };
+    } catch (error: any) {
+        console.error("[getHRDashboardStats] Database error:", error?.message || error);
+        
+        // Provide specific error messages for common issues
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again in a moment." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Record not found. Please refresh the page." };
+        }
+        
+        return { success: false, error: `Failed to fetch dashboard data: ${error?.message || 'Unknown error'}` };
     }
 }
 
 export async function getCompanyDetails() {
     const user = await currentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) {
+        console.error("[getCompanyDetails] No authenticated user");
+        return { success: false, error: "Please sign in to continue." };
+    }
 
     try {
         const employee = await prisma.employee.findUnique({
@@ -100,13 +126,23 @@ export async function getCompanyDetails() {
             include: { company: true }
         });
 
-        if (!employee || !employee.company) {
-            return { success: false, error: "No organization found." };
+        if (!employee) {
+            console.error("[getCompanyDetails] No employee record for clerk_id:", user.id);
+            return { success: false, error: "Employee profile not found. Please complete onboarding." };
+        }
+
+        if (!employee.org_id || !employee.company) {
+            console.error("[getCompanyDetails] Employee has no organization:", employee.emp_id);
+            return { success: false, error: "You are not linked to any organization. Please contact HR." };
         }
 
         return { success: true, company: employee.company, employee: employee };
-    } catch (error) {
-        return { success: false, error: "Failed to fetch company details." };
+    } catch (error: any) {
+        console.error("[getCompanyDetails] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch company details: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -149,9 +185,12 @@ export async function getCompanyActivity() {
                 change_summary: (log.details as any)?.summary || log.action
             }))
         };
-    } catch (error) {
-        console.error("Activity Feed Error:", error);
-        return { success: false, error: "Failed to fetch activity." };
+    } catch (error: any) {
+        console.error("[getCompanyActivity] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch activity: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -211,9 +250,12 @@ export async function getLeaveRequests(filter: 'all' | 'pending') {
                 ai_analysis: req.ai_analysis_json // Pass full AI results
             }))
         };
-    } catch (error) {
-        console.error("Leave Requests Error:", error);
-        return { success: false, error: "Failed to fetch leave requests." };
+    } catch (error: any) {
+        console.error("[getLeaveRequests] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch leave requests: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -259,9 +301,15 @@ export async function getEscalationDetail(requestId: string) {
                 created_at: request.created_at
             }
         };
-    } catch (error) {
-        console.error("Escalation Detail Error:", error);
-        return { success: false, error: "Failed to fetch escalation details" };
+    } catch (error: any) {
+        console.error("[getEscalationDetail] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Escalation request not found." };
+        }
+        return { success: false, error: `Failed to fetch escalation details: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -428,9 +476,15 @@ export async function updateLeaveRequestStatus(
             success: true, 
             explanation: `Leave request ${status}. Email notification sent to ${request.employee.email}. Reason: ${decisionReason}`
         };
-    } catch (error) {
-        console.error("Update Status Error:", error);
-        return { success: false, error: "Failed to update status." };
+    } catch (error: any) {
+        console.error("[updateLeaveRequestStatus] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Could not update leave request." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Leave request not found or already processed." };
+        }
+        return { success: false, error: `Failed to update status: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -477,9 +531,12 @@ export async function getCompanyEmployees() {
                 status: emp.is_active ? 'Active' : 'Inactive'
             }))
         };
-    } catch (error) {
-        console.error("Fetch Employees Error:", error);
-        return { success: false, error: "Failed to fetch employees." };
+    } catch (error: any) {
+        console.error("[getCompanyEmployees] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch employees: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -560,9 +617,12 @@ export async function getMissingCheckIns() {
             checkedIn: checkedInIds.size,
             onLeave: onLeaveIds.size
         };
-    } catch (error) {
-        console.error("Missing Check-ins Error:", error);
-        return { success: false, error: "Failed to fetch missing check-ins" };
+    } catch (error: any) {
+        console.error("[getMissingCheckIns] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch missing check-ins: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -668,9 +728,15 @@ export async function markEmployeeAbsent(empId: string, markAsLeave: boolean) {
 
             return { success: true, message: "Employee marked as present" };
         }
-    } catch (error) {
-        console.error("Mark Absent Error:", error);
-        return { success: false, error: "Failed to mark employee" };
+    } catch (error: any) {
+        console.error("[markEmployeeAbsent] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        if (error?.code === 'P2025') {
+            return { success: false, error: "Employee not found." };
+        }
+        return { success: false, error: `Failed to mark employee: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -730,8 +796,11 @@ export async function getAttendanceOverview() {
                 notCheckedIn: totalEmployees - presentToday - lateToday - absentToday - onLeaveToday
             }
         };
-    } catch (error) {
-        console.error("Attendance Overview Error:", error);
-        return { success: false, error: "Failed to fetch attendance overview" };
+    } catch (error: any) {
+        console.error("[getAttendanceOverview] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch attendance overview: ${error?.message || 'Unknown error'}` };
     }
 }

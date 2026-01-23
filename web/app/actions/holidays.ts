@@ -66,9 +66,12 @@ export async function getHolidaySettings() {
         
         return { success: true, settings };
         
-    } catch (error) {
-        console.error("Get Holiday Settings Error:", error);
-        return { success: false, error: "Failed to fetch holiday settings" };
+    } catch (error: any) {
+        console.error("[getHolidaySettings] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch holiday settings: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -100,9 +103,12 @@ export async function updateHolidayMode(mode: 'auto' | 'manual') {
             message: `Holiday mode updated to ${mode.toUpperCase()}`
         };
         
-    } catch (error) {
-        console.error("Update Holiday Mode Error:", error);
-        return { success: false, error: "Failed to update holiday mode" };
+    } catch (error: any) {
+        console.error("[updateHolidayMode] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to update holiday mode: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -139,9 +145,12 @@ export async function updateCountryCode(countryCode: string) {
             message: `Country updated to ${countryCode}`
         };
         
-    } catch (error) {
-        console.error("Update Country Error:", error);
-        return { success: false, error: "Failed to update country" };
+    } catch (error: any) {
+        console.error("[updateCountryCode] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to update country: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -221,9 +230,12 @@ export async function addCustomHoliday(data: {
             settings: updatedSettings
         };
         
-    } catch (error) {
-        console.error("Add Custom Holiday Error:", error);
-        return { success: false, error: "Failed to add custom holiday" };
+    } catch (error: any) {
+        console.error("[addCustomHoliday] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to add custom holiday: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -264,9 +276,12 @@ export async function deleteCustomHoliday(holidayId: string) {
             message: "Holiday deleted successfully"
         };
         
-    } catch (error) {
-        console.error("Delete Custom Holiday Error:", error);
-        return { success: false, error: "Failed to delete holiday" };
+    } catch (error: any) {
+        console.error("[deleteCustomHoliday] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to delete holiday: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -339,9 +354,12 @@ export async function addBlockedDate(data: {
             message: `Date ${dateStr} blocked: ${data.reason}`
         };
         
-    } catch (error) {
-        console.error("Add Blocked Date Error:", error);
-        return { success: false, error: "Failed to block date" };
+    } catch (error: any) {
+        console.error("[addBlockedDate] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to block date: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -378,9 +396,12 @@ export async function removeBlockedDate(blockedId: string) {
             message: "Blocked date removed"
         };
         
-    } catch (error) {
-        console.error("Remove Blocked Date Error:", error);
-        return { success: false, error: "Failed to remove blocked date" };
+    } catch (error: any) {
+        console.error("[removeBlockedDate] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to remove blocked date: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -457,9 +478,12 @@ export async function refreshHolidays(year: number, countryCode: string = 'IN') 
             count: cached.length
         };
         
-    } catch (error) {
-        console.error("Refresh Holidays Error:", error);
-        return { success: false, error: "Failed to refresh holidays. Your existing holidays are preserved." };
+    } catch (error: any) {
+        console.error("[refreshHolidays] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Your existing holidays are preserved." };
+        }
+        return { success: false, error: `Failed to refresh holidays: ${error?.message || 'Unknown error'}. Your existing holidays are preserved.` };
     }
 }
 
@@ -540,9 +564,12 @@ export async function getAllHolidays(year: number) {
             }
         };
         
-    } catch (error) {
-        console.error("Get All Holidays Error:", error);
-        return { success: false, error: "Failed to fetch holidays" };
+    } catch (error: any) {
+        console.error("[getAllHolidays] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch holidays: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -601,8 +628,11 @@ export async function checkDateStatus(date: string) {
             can_request_leave: !blockedDate && (settings?.holiday_mode !== 'auto' || !publicHoliday)
         };
         
-    } catch (error) {
-        console.error("Check Date Status Error:", error);
-        return { success: false, error: "Failed to check date status" };
+    } catch (error: any) {
+        console.error("[checkDateStatus] Database error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to check date status: ${error?.message || 'Unknown error'}` };
     }
 }
