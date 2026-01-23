@@ -27,8 +27,11 @@ export async function joinWaitlist(email: string, companyName?: string, employee
         // await sendWaitlistConfirmationEmail(email);
 
         return { success: true, message: "Welcome to the waitlist!" };
-    } catch (error) {
-        console.error("Waitlist error:", error);
+    } catch (error: any) {
+        console.error("[joinWaitlist] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Connection issue. Please try again." };
+        }
         return { success: false, error: "Something went wrong. Please try again." };
     }
 }
@@ -37,8 +40,8 @@ export async function getWaitlistCount() {
     try {
         const count = await prisma.waitlist.count();
         return { success: true, count };
-    } catch (error) {
-        console.error("Waitlist count error:", error);
+    } catch (error: any) {
+        console.error("[getWaitlistCount] Error:", error?.message || error);
         return { success: true, count: 0 }; // Fallback
     }
 }

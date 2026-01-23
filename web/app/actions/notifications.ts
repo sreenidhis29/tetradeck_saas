@@ -315,9 +315,12 @@ export async function sendLeaveNotification(
 
         return { success: true, message: "Notification sent" };
 
-    } catch (error) {
-        console.error("Send Leave Notification Error:", error);
-        return { success: false, error: "Failed to send notification" };
+    } catch (error: any) {
+        console.error("[sendLeaveNotification] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to send notification: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -416,9 +419,12 @@ export async function sendMonthlySummary(empId: string, month: number, year: num
 
         return { success: true, message: "Monthly summary sent" };
 
-    } catch (error) {
-        console.error("Send Monthly Summary Error:", error);
-        return { success: false, error: "Failed to send monthly summary" };
+    } catch (error: any) {
+        console.error("[sendMonthlySummary] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to send monthly summary: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -460,8 +466,11 @@ export async function sendBulkMonthlySummaries(month: number, year: number) {
             }
         };
 
-    } catch (error) {
-        console.error("Bulk Monthly Summaries Error:", error);
-        return { success: false, error: "Failed to send bulk summaries" };
+    } catch (error: any) {
+        console.error("[sendBulkMonthlySummaries] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to send bulk summaries: ${error?.message || 'Unknown error'}` };
     }
 }

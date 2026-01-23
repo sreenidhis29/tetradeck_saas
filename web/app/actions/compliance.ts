@@ -225,9 +225,12 @@ export async function getComplianceDashboard(): Promise<{ success: boolean; data
 
         return { success: true, data: dashboardData };
 
-    } catch (error) {
-        console.error("Get Compliance Dashboard Error:", error);
-        return { success: false, error: "Failed to load compliance dashboard" };
+    } catch (error: any) {
+        console.error("[getComplianceDashboard] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to load compliance dashboard: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -258,9 +261,12 @@ export async function getAuditLogs(filters: {
 
         return result;
 
-    } catch (error) {
-        console.error("Get Audit Logs Error:", error);
-        return { success: false, error: "Failed to fetch audit logs" };
+    } catch (error: any) {
+        console.error("[getAuditLogs] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch audit logs: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -275,9 +281,12 @@ export async function runIntegrityCheck() {
         const result = await verifyAuditIntegrity(employee!.org_id || 'default');
         return result;
 
-    } catch (error) {
-        console.error("Run Integrity Check Error:", error);
-        return { success: false, error: "Failed to run integrity check" };
+    } catch (error: any) {
+        console.error("[runIntegrityCheck] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to run integrity check: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -344,9 +353,12 @@ export async function getSLAMetrics() {
             }
         };
 
-    } catch (error) {
-        console.error("Get SLA Metrics Error:", error);
-        return { success: false, error: "Failed to fetch SLA metrics" };
+    } catch (error: any) {
+        console.error("[getSLAMetrics] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch SLA metrics: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -415,8 +427,11 @@ export async function exportAuditLogs(format: 'csv' | 'json', days: number = 30)
             contentType: 'text/csv'
         };
 
-    } catch (error) {
-        console.error("Export Audit Logs Error:", error);
-        return { success: false, error: "Failed to export audit logs" };
+    } catch (error: any) {
+        console.error("[exportAuditLogs] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to export audit logs: ${error?.message || 'Unknown error'}` };
     }
 }

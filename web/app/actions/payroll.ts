@@ -306,9 +306,12 @@ export async function calculatePayroll(month: number, year: number) {
             }
         };
         
-    } catch (error) {
-        console.error("Payroll Calculation Error:", error);
-        return { success: false, error: "Failed to calculate payroll" };
+    } catch (error: any) {
+        console.error("[calculatePayroll] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to calculate payroll: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -367,9 +370,12 @@ export async function processPayroll(month: number, year: number) {
             processed_count: savedRecords.length
         };
         
-    } catch (error) {
-        console.error("Payroll Processing Error:", error);
-        return { success: false, error: "Failed to process payroll" };
+    } catch (error: any) {
+        console.error("[processPayroll] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to process payroll: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -418,9 +424,12 @@ export async function getPayrollHistory(emp_id?: string) {
             }))
         };
         
-    } catch (error) {
-        console.error("Payroll History Error:", error);
-        return { success: false, error: "Failed to fetch payroll history" };
+    } catch (error: any) {
+        console.error("[getPayrollHistory] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch payroll history: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -451,9 +460,12 @@ export async function approvePayroll(month: number, year: number) {
             approved_count: updated.count
         };
         
-    } catch (error) {
-        console.error("Payroll Approval Error:", error);
-        return { success: false, error: "Failed to approve payroll" };
+    } catch (error: any) {
+        console.error("[approvePayroll] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to approve payroll: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -482,9 +494,12 @@ export async function markPayrollPaid(month: number, year: number) {
             paid_count: updated.count
         };
         
-    } catch (error) {
-        console.error("Mark Paid Error:", error);
-        return { success: false, error: "Failed to mark payroll as paid" };
+    } catch (error: any) {
+        console.error("[markPayrollPaid] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to mark payroll as paid: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -564,9 +579,12 @@ export async function getPayslip(emp_id: string, month: number, year: number) {
             }
         };
         
-    } catch (error) {
-        console.error("Payslip Error:", error);
-        return { success: false, error: "Failed to fetch payslip" };
+    } catch (error: any) {
+        console.error("[getPayslip] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to fetch payslip: ${error?.message || 'Unknown error'}` };
     }
 }
 
@@ -635,8 +653,11 @@ export async function exportPayrollCSV(month: number, year: number) {
             filename: `payroll_${month}_${year}.csv`
         };
         
-    } catch (error) {
-        console.error("CSV Export Error:", error);
-        return { success: false, error: "Failed to export CSV" };
+    } catch (error: any) {
+        console.error("[exportPayrollCSV] Error:", error?.message || error);
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection failed. Please try again." };
+        }
+        return { success: false, error: `Failed to export CSV: ${error?.message || 'Unknown error'}` };
     }
 }
