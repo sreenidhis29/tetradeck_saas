@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculatePayroll, processPayroll, approvePayroll, markPayrollPaid, exportPayrollCSV } from '@/app/actions/payroll';
+import { updateEmployeeCompensation } from '@/app/actions/employee';
 
 interface PayrollRecord {
     emp_id: string;
@@ -83,6 +84,96 @@ export default function PayrollPage() {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
     const [metadata, setMetadata] = useState<{ working_days: number; holidays: number } | null>(null);
+
+    // Edit compensation modal state
+    const [editEmpId, setEditEmpId] = useState<string | null>(null);
+    const [compForm, setCompForm] = useState<{ base_salary?: number; pf_rate?: number; insurance_amount?: number; professional_tax?: number; other_allowances?: number; other_deductions?: number; gst_applicable?: boolean }>({});
+    const [savingComp, setSavingComp] = useState(false);
+
+    // Payslip generation
+    const [generatingPayslip, setGeneratingPayslip] = useState<string | null>(null);
+
+    const handleGeneratePayslip = async (emp: PayrollRecord) => {
+        setGeneratingPayslip(emp.emp_id);
+        try {
+            // Generate payslip HTML content
+            const payslipHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payslip - ${emp.full_name}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .section { margin: 20px 0; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .total { font-weight: bold; border-top: 2px solid #333; margin-top: 10px; padding-top: 10px; }
+        h1 { color: #333; } h2 { color: #666; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SALARY SLIP</h1>
+        <p>${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
+    </div>
+    <div class="section">
+        <h2>Employee Details</h2>
+        <div class="row"><span>Name:</span><span>${emp.full_name}</span></div>
+        <div class="row"><span>Employee ID:</span><span>${emp.emp_id}</span></div>
+        <div class="row"><span>Department:</span><span>${emp.department}</span></div>
+        <div class="row"><span>Position:</span><span>${emp.position}</span></div>
+    </div>
+    <div class="section">
+        <h2>Earnings</h2>
+        <div class="row"><span>Basic Salary</span><span>₹${emp.basic_salary.toLocaleString()}</span></div>
+        <div class="row"><span>HRA</span><span>₹${emp.hra.toLocaleString()}</span></div>
+        <div class="row"><span>Travel Allowance</span><span>₹${emp.travel_allowance.toLocaleString()}</span></div>
+        <div class="row"><span>Medical Allowance</span><span>₹${emp.medical_allowance.toLocaleString()}</span></div>
+        <div class="row"><span>Special Allowance</span><span>₹${emp.special_allowance.toLocaleString()}</span></div>
+        <div class="row total"><span>Gross Earnings</span><span>₹${emp.gross_salary.toLocaleString()}</span></div>
+    </div>
+    <div class="section">
+        <h2>Deductions</h2>
+        <div class="row"><span>PF Contribution</span><span>₹${emp.pf_deduction.toLocaleString()}</span></div>
+        <div class="row"><span>TDS</span><span>₹${emp.tax_deduction.toLocaleString()}</span></div>
+        <div class="row"><span>LOP Deduction</span><span>₹${emp.lop_deduction.toLocaleString()}</span></div>
+        <div class="row"><span>Other Deductions</span><span>₹${emp.other_deductions.toLocaleString()}</span></div>
+        <div class="row total"><span>Total Deductions</span><span>₹${emp.total_deductions.toLocaleString()}</span></div>
+    </div>
+    <div class="section">
+        <div class="row total" style="font-size: 18px;"><span>NET PAY</span><span>₹${emp.net_pay.toLocaleString()}</span></div>
+    </div>
+    <div class="section" style="margin-top: 40px; font-size: 12px; color: #666;">
+        <p>This is a computer-generated payslip and does not require a signature.</p>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+    </div>
+</body>
+</html>`;
+
+            // Open in new window for printing
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(payslipHtml);
+                printWindow.document.close();
+                printWindow.print();
+                toast.success('Payslip generated - print dialog opened');
+            } else {
+                // Fallback: download as HTML
+                const blob = new Blob([payslipHtml], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `payslip_${emp.emp_id}_${selectedMonth}_${selectedYear}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success('Payslip downloaded');
+            }
+        } catch (error) {
+            toast.error('Failed to generate payslip');
+        } finally {
+            setGeneratingPayslip(null);
+        }
+    };
 
     useEffect(() => {
         loadPayroll();
@@ -472,6 +563,15 @@ export default function PayrollPage() {
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    setEditEmpId(emp.emp_id);
+                                                    setCompForm({});
+                                                }}
+                                                className="ml-2 p-2 rounded-lg bg-cyan-600/70 hover:bg-cyan-600 text-white transition-colors"
+                                            >
+                                                Edit Salary
+                                            </button>
                                         </td>
                                     </motion.tr>
                                 ))}
@@ -558,12 +658,16 @@ export default function PayrollPage() {
                                                 <span className="text-white font-mono">{formatMoney(emp.half_day_deduction)}</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-slate-400">PF (12%)</span>
+                                                <span className="text-slate-400">PF ({emp.basic_salary > 0 ? Math.round((emp.pf_deduction / emp.basic_salary) * 100) : 12}%)</span>
                                                 <span className="text-white font-mono">{formatMoney(emp.pf_deduction)}</span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-slate-400">TDS</span>
                                                 <span className="text-white font-mono">{formatMoney(emp.tax_deduction)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Insurance/Prof/Other</span>
+                                                <span className="text-white font-mono">{formatMoney(emp.other_deductions)}</span>
                                             </div>
                                             <div className="border-t border-slate-700 pt-2 mt-3 flex justify-between font-semibold">
                                                 <span className="text-rose-400">Total Deductions</span>
@@ -616,8 +720,16 @@ export default function PayrollPage() {
                                         <p className="text-slate-400 text-sm">Net Payable Amount</p>
                                         <p className="text-3xl font-bold text-cyan-400 mt-1">{formatMoney(emp.net_pay)}</p>
                                     </div>
-                                    <button className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl flex items-center gap-2 transition-colors">
-                                        <FileText className="w-4 h-4" />
+                                    <button 
+                                        onClick={() => handleGeneratePayslip(emp)}
+                                        disabled={generatingPayslip === emp.emp_id}
+                                        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl flex items-center gap-2 transition-colors disabled:opacity-50"
+                                    >
+                                        {generatingPayslip === emp.emp_id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <FileText className="w-4 h-4" />
+                                        )}
                                         Generate Payslip
                                     </button>
                                 </div>
@@ -626,6 +738,85 @@ export default function PayrollPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Edit Compensation Modal */}
+            <AnimatePresence>
+                {editEmpId && (
+                    <motion.div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6"
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-white font-bold">Edit Compensation</h3>
+                                <button className="text-slate-400 hover:text-white" onClick={() => setEditEmpId(null)}>✕</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormInput label="Base Salary" type="number" value={compForm.base_salary ?? ''} onChange={v => setCompForm(f => ({ ...f, base_salary: v }))} />
+                                <FormInput label="PF Rate (%)" type="number" step="0.01" value={compForm.pf_rate ?? ''} onChange={v => setCompForm(f => ({ ...f, pf_rate: v }))} />
+                                <FormInput label="Insurance Amount" type="number" value={compForm.insurance_amount ?? ''} onChange={v => setCompForm(f => ({ ...f, insurance_amount: v }))} />
+                                <FormInput label="Professional Tax" type="number" value={compForm.professional_tax ?? ''} onChange={v => setCompForm(f => ({ ...f, professional_tax: v }))} />
+                                <FormInput label="Other Allowances" type="number" value={compForm.other_allowances ?? ''} onChange={v => setCompForm(f => ({ ...f, other_allowances: v }))} />
+                                <FormInput label="Other Deductions" type="number" value={compForm.other_deductions ?? ''} onChange={v => setCompForm(f => ({ ...f, other_deductions: v }))} />
+                                <div className="col-span-1 md:col-span-2 flex items-center gap-2 mt-2">
+                                    <input type="checkbox" id="gst" checked={compForm.gst_applicable || false} onChange={e => setCompForm(f => ({ ...f, gst_applicable: e.target.checked }))} />
+                                    <label htmlFor="gst" className="text-slate-300">GST Applicable (for invoicing)</label>
+                                </div>
+                            </div>
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300" onClick={() => setEditEmpId(null)}>Cancel</button>
+                                <button
+                                    onClick={async () => {
+                                        setSavingComp(true);
+                                        const payload: any = { emp_id: editEmpId };
+                                        if (compForm.base_salary != null) payload.base_salary = Number(compForm.base_salary);
+                                        if (compForm.pf_rate != null) payload.pf_rate = Number(compForm.pf_rate);
+                                        if (compForm.insurance_amount != null) payload.insurance_amount = Number(compForm.insurance_amount);
+                                        if (compForm.professional_tax != null) payload.professional_tax = Number(compForm.professional_tax);
+                                        if (compForm.other_allowances != null) payload.other_allowances = Number(compForm.other_allowances);
+                                        if (compForm.other_deductions != null) payload.other_deductions = Number(compForm.other_deductions);
+                                        if (typeof compForm.gst_applicable === 'boolean') payload.gst_applicable = compForm.gst_applicable;
+
+                                        const res = await updateEmployeeCompensation(payload);
+                                        setSavingComp(false);
+                                        if (res.success) {
+                                            toast.success('Compensation updated');
+                                            setEditEmpId(null);
+                                            await loadPayroll();
+                                        } else {
+                                            toast.error(res.error || 'Update failed');
+                                        }
+                                    }}
+                                    className="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 flex items-center gap-2"
+                                    disabled={savingComp}
+                                >
+                                    {savingComp && <Loader2 className="w-4 h-4 animate-spin" />} Save
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+function FormInput({ label, type = 'text', step, value, onChange }: { label: string; type?: string; step?: string; value: any; onChange: (v: number) => void }) {
+    return (
+        <div>
+            <label className="block text-sm text-slate-400 mb-1">{label}</label>
+            <input
+                type={type}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white"
+            />
         </div>
     );
 }

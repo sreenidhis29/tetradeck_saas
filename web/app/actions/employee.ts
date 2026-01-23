@@ -253,6 +253,58 @@ export async function analyzeLeaveRequest(text: string) {
     }
 }
 
+// Update employee compensation settings (HR/Admin only)
+export async function updateEmployeeCompensation(params: {
+    emp_id: string;
+    base_salary?: number;
+    pf_rate?: number; // 0.12 = 12%
+    insurance_amount?: number;
+    professional_tax?: number;
+    other_allowances?: number;
+    other_deductions?: number;
+    gst_applicable?: boolean;
+}) {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const actor = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            select: { role: true, org_id: true }
+        });
+        if (!actor || (actor.role !== 'hr' && actor.role !== 'admin')) {
+            return { success: false, error: "HR access required" };
+        }
+
+        const target = await prisma.employee.findUnique({
+            where: { emp_id: params.emp_id },
+            select: { org_id: true }
+        });
+        if (!target || target.org_id !== actor.org_id) {
+            return { success: false, error: "Employee not found in your organization" };
+        }
+
+        const updateData: any = {};
+        if (typeof params.base_salary === 'number') updateData.base_salary = params.base_salary;
+        if (typeof params.pf_rate === 'number') updateData.pf_rate = params.pf_rate;
+        if (typeof params.insurance_amount === 'number') updateData.insurance_amount = params.insurance_amount;
+        if (typeof params.professional_tax === 'number') updateData.professional_tax = params.professional_tax;
+        if (typeof params.other_allowances === 'number') updateData.other_allowances = params.other_allowances;
+        if (typeof params.other_deductions === 'number') updateData.other_deductions = params.other_deductions;
+        if (typeof params.gst_applicable === 'boolean') updateData.gst_applicable = params.gst_applicable;
+
+        await prisma.employee.update({
+            where: { emp_id: params.emp_id },
+            data: updateData
+        });
+
+        return { success: true, message: "Compensation updated" };
+    } catch (error: any) {
+        console.error("[updateEmployeeCompensation] Error:", error?.message || error);
+        return { success: false, error: `Failed to update compensation: ${error?.message || 'Unknown error'}` };
+    }
+}
+
 export async function getLeaveHistory() {
     const user = await currentUser();
     if (!user) return { success: false, error: "Unauthorized" };

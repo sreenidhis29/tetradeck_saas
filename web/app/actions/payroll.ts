@@ -153,8 +153,9 @@ export async function calculatePayroll(month: number, year: number) {
         const payrollRecords: PayrollCalculation[] = [];
         
         for (const emp of employees) {
-            // Default salary if not set (will be configurable per employee later)
-            const baseSalary = 50000; // Default ₹50,000 - should come from employee record
+            // Use configured salary if available
+            const configuredBase = (emp as any).base_salary ? Number((emp as any).base_salary) : undefined;
+            const baseSalary = configuredBase && configuredBase > 0 ? configuredBase : 50000; // Default ₹50,000
             const perDaySalary = baseSalary / workingDays;
             
             // Count attendance statuses
@@ -230,17 +231,22 @@ export async function calculatePayroll(month: number, year: number) {
             const travelAllowance = baseSalary * 0.08;
             const medicalAllowance = baseSalary * 0.05;
             const specialAllowance = baseSalary * 0.07;
-            const totalAllowances = hra + travelAllowance + medicalAllowance + specialAllowance;
+            const otherAllowances = (emp as any).other_allowances ? Number((emp as any).other_allowances) : 0;
+            const totalAllowances = hra + travelAllowance + medicalAllowance + specialAllowance + otherAllowances;
             
             // Deductions
             const lopDeduction = lopDays * perDaySalary;
             const lateDeduction = lateDays > 3 ? (lateDays - 3) * (perDaySalary * 0.25) : 0; // 25% per day after 3 late days
             const halfDayDeduction = halfDays * (perDaySalary * 0.5);
-            const pfDeduction = baseSalary * 0.12; // 12% PF on basic
+            const pfRate = (emp as any).pf_rate != null ? Number((emp as any).pf_rate) : 0.12;
+            const pfDeduction = baseSalary * pfRate; // PF based on configured rate
             const grossBeforeTax = baseSalary + totalAllowances - lopDeduction - lateDeduction - halfDayDeduction;
+            const insurance = (emp as any).insurance_amount ? Number((emp as any).insurance_amount) : 0;
+            const professionalTax = (emp as any).professional_tax ? Number((emp as any).professional_tax) : 0;
+            const otherDeductionsCfg = (emp as any).other_deductions ? Number((emp as any).other_deductions) : 0;
             const taxDeduction = grossBeforeTax > 50000 ? grossBeforeTax * 0.1 : 0; // Simple 10% TDS if above 50k
             
-            const totalDeductions = lopDeduction + lateDeduction + halfDayDeduction + pfDeduction + taxDeduction;
+            const totalDeductions = lopDeduction + lateDeduction + halfDayDeduction + pfDeduction + insurance + professionalTax + otherDeductionsCfg + taxDeduction;
             const grossSalary = baseSalary + totalAllowances;
             const netPay = Math.max(0, grossSalary - totalDeductions);
             
@@ -273,7 +279,7 @@ export async function calculatePayroll(month: number, year: number) {
                 half_day_deduction: Math.round(halfDayDeduction),
                 pf_deduction: Math.round(pfDeduction),
                 tax_deduction: Math.round(taxDeduction),
-                other_deductions: 0,
+                other_deductions: Math.round(insurance + professionalTax + otherDeductionsCfg),
                 total_deductions: Math.round(totalDeductions),
                 
                 gross_salary: Math.round(grossSalary),

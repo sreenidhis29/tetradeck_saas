@@ -107,6 +107,14 @@ export function WelcomeAnimation({ userName, onComplete }: WelcomeAnimationProps
 
     const handleContinue = async () => {
         await markWelcomeShown();
+        // Local fallback flag to prevent re-show in case DB update fails
+        try {
+            const uid = (typeof window !== 'undefined' && (window as any).Clerk?.user?.id) || undefined;
+            const key = `welcome_shown_${uid || 'unknown'}`;
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(key, '1');
+            }
+        } catch {}
         onComplete();
     };
 

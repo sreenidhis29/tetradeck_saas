@@ -59,44 +59,44 @@ const employeeSteps = [
     {
         id: 3,
         title: "Check-In & Attendance",
-        description: "Track your daily attendance with a simple click. View your attendance history and patterns.",
+        description: "Mark check-in/out and view your daily status with total hours.",
         icon: Clock,
         color: "from-emerald-500 to-teal-500",
         features: [
             "One-click check-in/out",
-            "Location tracking (optional)",
-            "Break time management",
-            "Monthly attendance reports"
+            "Today's status and timestamps",
+            "Total hours shown on checkout",
+            "Recent attendance history"
         ],
-        tip: "Don't forget to check in when you start and check out when you leave!"
+        tip: "Tap Check In at start, and Check Out before you leave."
     },
     {
         id: 4,
         title: "Leave Management",
-        description: "Request, track, and manage all your leaves in one place. View your leave history and balances.",
+        description: "Create requests, track approvals, and monitor balances.",
         icon: Calendar,
         color: "from-orange-500 to-amber-500",
         features: [
             "Multiple leave types",
-            "Real-time status tracking",
-            "Team calendar view",
-            "Holiday calendar integration"
+            "Real-time approval status",
+            "Balances and recent history",
+            "Holiday calendar"
         ],
-        tip: "Plan your leaves in advance for better approval chances!"
+        tip: "Submit early to improve approval chances and plan around holidays."
     },
     {
         id: 5,
         title: "Documents & Profile",
-        description: "Access your documents, update your profile, and manage your personal information securely.",
+        description: "View documents and your profile details in one place.",
         icon: User,
         color: "from-indigo-500 to-violet-500",
         features: [
-            "Secure document storage",
-            "Profile customization",
-            "Contact information",
-            "Emergency contacts"
+            "Document list and details",
+            "Profile overview",
+            "Company and department info",
+            "Contact information"
         ],
-        tip: "Keep your profile updated for accurate communication!"
+        tip: "Keep your profile details current for smooth communication."
     }
 ];
 
@@ -146,16 +146,16 @@ const hrSteps = [
     {
         id: 4,
         title: "Team Management",
-        description: "View your entire team structure, performance metrics, and department analytics.",
+        description: "Monitor requests and team activity from the dashboard.",
         icon: Bell,
         color: "from-pink-500 to-rose-500",
         features: [
-            "Org chart visualization",
-            "Department management",
-            "Performance tracking",
-            "Headcount analytics"
+            "Pending approvals queue",
+            "Leave requests overview",
+            "Department filters",
+            "Activity feed"
         ],
-        tip: "Regular team reviews help identify patterns and improve workforce planning!"
+        tip: "Clear the approvals queue early to maintain SLAs."
     },
     {
         id: 5,

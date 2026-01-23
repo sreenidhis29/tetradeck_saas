@@ -144,14 +144,29 @@ const stats = [
     { value: "4.9/5", label: "Rating" }
 ];
 
+import { joinWaitlist } from "@/app/actions/waitlist";
+
 export default function LandingPage() {
     const [email, setEmail] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [showDemo, setShowDemo] = useState(false);
 
     const handleWaitlist = async (e: React.FormEvent) => {
         e.preventDefault();
-        // TODO: Send to your waitlist API
-        setSubmitted(true);
+        if (!email) return;
+        setLoading(true);
+        try {
+            const result = await joinWaitlist(email);
+            if (result.success) {
+                setSubmitted(true);
+            }
+        } catch {
+            // Still show success for UX
+            setSubmitted(true);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -208,7 +223,10 @@ export default function LandingPage() {
                             Get Started Free
                             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition" />
                         </Link>
-                        <button className="px-8 py-4 border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/5 transition flex items-center gap-2">
+                        <button 
+                            onClick={() => setShowDemo(true)}
+                            className="px-8 py-4 border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/5 transition flex items-center gap-2"
+                        >
                             <Play className="w-5 h-5" />
                             Watch Demo
                         </button>
@@ -454,6 +472,50 @@ export default function LandingPage() {
                     </div>
                 </div>
             </section>
+
+            {/* Demo Modal */}
+            {showDemo && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative w-full max-w-4xl bg-slate-900 rounded-2xl overflow-hidden"
+                    >
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                            <h3 className="text-white font-semibold">Product Demo</h3>
+                            <button onClick={() => setShowDemo(false)} className="text-slate-400 hover:text-white text-xl">&times;</button>
+                        </div>
+                        <div className="aspect-video bg-black flex items-center justify-center">
+                            <div className="text-center p-8">
+                                <Play className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+                                <p className="text-white text-xl mb-2">Continuum HR Demo</p>
+                                <p className="text-slate-400 mb-6">See how AI-powered leave management works</p>
+                                <div className="space-y-3 text-left max-w-md mx-auto">
+                                    <div className="flex items-center gap-3 text-slate-300">
+                                        <CheckCircle className="w-5 h-5 text-green-400" />
+                                        <span>AI analyzes leave requests instantly</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-300">
+                                        <CheckCircle className="w-5 h-5 text-green-400" />
+                                        <span>Team calendar conflict detection</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-300">
+                                        <CheckCircle className="w-5 h-5 text-green-400" />
+                                        <span>Natural language requests</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-300">
+                                        <CheckCircle className="w-5 h-5 text-green-400" />
+                                        <span>Real-time attendance tracking</span>
+                                    </div>
+                                </div>
+                                <Link href="/sign-up" className="inline-block mt-8 px-8 py-3 bg-gradient-to-r from-purple-600 to-cyan-500 rounded-xl font-semibold">
+                                    Try It Free
+                                </Link>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,9 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, CheckCircle2, AlertCircle, LogIn, LogOut, Coffee, Play } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, LogIn, LogOut, Coffee, Play, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+    getTodayAttendance, 
+    clockIn, 
+    clockOut, 
+    startBreak, 
+    endBreak,
+    type AttendanceEntry 
+} from '@/app/actions/attendance';
 
 type AttendanceStatus = 'not_checked_in' | 'checked_in' | 'on_break';
 
@@ -12,11 +20,34 @@ export default function AttendancePage() {
     const [sessionStart, setSessionStart] = useState<Date | null>(null);
     const [sessionDuration, setSessionDuration] = useState('00:00:00');
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [activities, setActivities] = useState<Array<{type: string, time: Date}>>([]);
+
+    // Fetch today's attendance on mount
+    const fetchAttendance = useCallback(async () => {
+        const result = await getTodayAttendance();
+        if (result.success && result.data) {
+            setStatus(result.data.status);
+            if (result.data.checkIn) {
+                setSessionStart(new Date(result.data.checkIn));
+            }
+            setActivities(
+                result.data.activities.map((a: AttendanceEntry) => ({
+                    type: a.type,
+                    time: new Date(a.time),
+                }))
+            );
+        }
+        setInitialLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchAttendance();
+    }, [fetchAttendance]);
 
     // Update timer
     useEffect(() => {
-        if (status === 'checked_in' && sessionStart) {
+        if ((status === 'checked_in' || status === 'on_break') && sessionStart) {
             const interval = setInterval(() => {
                 const diff = Date.now() - sessionStart.getTime();
                 const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
@@ -30,47 +61,70 @@ export default function AttendancePage() {
 
     const handleCheckIn = async () => {
         setLoading(true);
-        // Simulate API call
-        await new Promise(r => setTimeout(r, 500));
-        setStatus('checked_in');
-        setSessionStart(new Date());
-        setActivities(prev => [{type: 'Check In', time: new Date()}, ...prev]);
-        toast.success('Checked in successfully!');
+        const result = await clockIn();
+        if (result.success) {
+            setStatus('checked_in');
+            setSessionStart(new Date());
+            setActivities(prev => [{type: 'Check In', time: new Date()}, ...prev]);
+            toast.success('Checked in successfully!');
+        } else {
+            toast.error(result.error || 'Failed to check in');
+        }
         setLoading(false);
     };
 
     const handleCheckOut = async () => {
         setLoading(true);
-        await new Promise(r => setTimeout(r, 500));
-        setStatus('not_checked_in');
-        setSessionStart(null);
-        setSessionDuration('00:00:00');
-        setActivities(prev => [{type: 'Check Out', time: new Date()}, ...prev]);
-        toast.success('Checked out successfully!');
+        const result = await clockOut();
+        if (result.success) {
+            setStatus('not_checked_in');
+            setSessionStart(null);
+            setSessionDuration('00:00:00');
+            setActivities(prev => [{type: 'Check Out', time: new Date()}, ...prev]);
+            toast.success('Checked out successfully!');
+        } else {
+            toast.error(result.error || 'Failed to check out');
+        }
         setLoading(false);
     };
 
     const handleTakeBreak = async () => {
         setLoading(true);
-        await new Promise(r => setTimeout(r, 500));
-        setStatus('on_break');
-        setActivities(prev => [{type: 'Break Started', time: new Date()}, ...prev]);
-        toast.info('Break started. Enjoy!');
+        const result = await startBreak();
+        if (result.success) {
+            setStatus('on_break');
+            setActivities(prev => [{type: 'Break Started', time: new Date()}, ...prev]);
+            toast.info('Break started. Enjoy!');
+        } else {
+            toast.error(result.error || 'Failed to start break');
+        }
         setLoading(false);
     };
 
     const handleResumeWork = async () => {
         setLoading(true);
-        await new Promise(r => setTimeout(r, 500));
-        setStatus('checked_in');
-        setActivities(prev => [{type: 'Break Ended', time: new Date()}, ...prev]);
-        toast.success('Welcome back!');
+        const result = await endBreak();
+        if (result.success) {
+            setStatus('checked_in');
+            setActivities(prev => [{type: 'Break Ended', time: new Date()}, ...prev]);
+            toast.success('Welcome back!');
+        } else {
+            toast.error(result.error || 'Failed to end break');
+        }
         setLoading(false);
     };
 
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
+
+    if (initialLoading) {
+        return (
+            <div className="max-w-6xl mx-auto flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-6xl mx-auto">

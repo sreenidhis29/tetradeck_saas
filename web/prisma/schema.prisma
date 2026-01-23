@@ -162,6 +162,15 @@ model Employee {
   tutorial_completed     Boolean          @default(false)
   welcome_shown          Boolean          @default(false)
 
+  // Compensation Settings (Optional per employee)
+  base_salary       Decimal? @db.Decimal(10, 2)
+  pf_rate           Decimal? @db.Decimal(4, 3) @default(0.12)
+  insurance_amount  Decimal? @db.Decimal(10, 2)
+  professional_tax  Decimal? @db.Decimal(10, 2)
+  other_allowances  Decimal? @db.Decimal(10, 2)
+  other_deductions  Decimal? @db.Decimal(10, 2)
+  gst_applicable    Boolean? @default(false)
+
   // Audits (Actions performed by this employee)
   audits_triggered AuditLog[] @relation("Actor")
 

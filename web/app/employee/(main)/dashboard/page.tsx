@@ -62,14 +62,21 @@ export default function EmployeeDashboard() {
             } else {
                 // Check if we need to show welcome/tutorial
                 if ((result as any).showWelcome) {
-                    router.push("/employee/welcome");
-                    return;
+                    // Local fallback: if we've already marked welcome locally, skip redirect
+                    try {
+                        const uid = user?.id || "unknown";
+                        const localFlag = typeof window !== 'undefined' ? window.localStorage.getItem(`welcome_shown_${uid}`) : null;
+                        if (!localFlag) {
+                            router.push("/employee/welcome");
+                            return;
+                        }
+                    } catch {}
                 }
                 setAccessStatus({ hasAccess: true, isPending: false, loading: false });
             }
         };
         checkAccess();
-    }, [router]);
+    }, [router, user?.id]);
 
     useEffect(() => {
         // Only fetch data if user has access
@@ -199,6 +206,17 @@ export default function EmployeeDashboard() {
         { label: 'Performance', value: data.performance, icon: <Activity />, color: 'from-purple-500 to-purple-600' },
     ];
 
+    const GuideShortcut = () => (
+        <div className="flex items-center justify-end mb-4">
+            <button
+                onClick={() => router.push('/employee/welcome?tutorial=1')}
+                className="px-3 py-2 text-sm rounded-lg bg-white/10 hover:bg-white/20 text-white"
+            >
+                Open Guide
+            </button>
+        </div>
+    );
+
     return (
         <div className="max-w-6xl mx-auto">
             {/* Pending Approval Banner */}
@@ -243,6 +261,9 @@ export default function EmployeeDashboard() {
                     Here's your daily overview and performance metrics.
                 </motion.p>
             </header>
+
+            {/* Guide Shortcut */}
+            <GuideShortcut />
 
             {/* Animated Check-In Widget */}
             <motion.div

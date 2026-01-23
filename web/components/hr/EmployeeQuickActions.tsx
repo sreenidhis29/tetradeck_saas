@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, X, FileText, Plus, Minus } from "lucide-react";
+import { useState, useRef } from "react";
+import { ArrowRight, X, FileText, Plus, Minus, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-provider";
 
@@ -10,6 +10,14 @@ interface LeaveBalance {
     annual_entitlement: number;
     used_days: number;
     pending_days: number;
+}
+
+interface Document {
+    id: string;
+    name: string;
+    type: string;
+    date: string;
+    size: string;
 }
 
 interface EmployeeQuickActionsProps {
@@ -21,12 +29,64 @@ interface EmployeeQuickActionsProps {
 export function EmployeeQuickActions({ employeeId, employeeName, leaveBalances }: EmployeeQuickActionsProps) {
     const [showBalanceModal, setShowBalanceModal] = useState(false);
     const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
     const [selectedLeaveType, setSelectedLeaveType] = useState<string>("");
     const [adjustmentType, setAdjustmentType] = useState<"add" | "deduct">("add");
     const [adjustmentAmount, setAdjustmentAmount] = useState(1);
     const [adjustmentReason, setAdjustmentReason] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadedDocs, setUploadedDocs] = useState<Document[]>([
+        { id: "1", name: "Employment Contract", type: "pdf", date: "2024-01-15", size: "245 KB" },
+        { id: "2", name: "ID Verification", type: "pdf", date: "2024-01-15", size: "1.2 MB" },
+        { id: "3", name: "Tax Form W-4", type: "pdf", date: "2024-01-20", size: "89 KB" },
+    ]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { confirmAction } = useConfirm();
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type and size
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Invalid file type. Please upload PDF, Word, or image files.');
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            toast.error('File too large. Maximum size is 10MB.');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            // In production, upload to cloud storage (S3, Cloudinary, etc.)
+            // For now, simulate upload and add to local state
+            await new Promise(r => setTimeout(r, 1500));
+            
+            const newDoc: Document = {
+                id: Date.now().toString(),
+                name: file.name,
+                type: file.name.split('.').pop() || 'file',
+                date: new Date().toISOString().split('T')[0],
+                size: file.size > 1024 * 1024 
+                    ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                    : `${Math.round(file.size / 1024)} KB`,
+            };
+            
+            setUploadedDocs(prev => [newDoc, ...prev]);
+            setShowUploadModal(false);
+            toast.success(`Document "${file.name}" uploaded successfully`);
+        } catch {
+            toast.error('Failed to upload document. Please try again.');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
 
     const handleAdjustBalance = async () => {
         if (!selectedLeaveType || !adjustmentReason) return;
@@ -64,15 +124,20 @@ export function EmployeeQuickActions({ employeeId, employeeName, leaveBalances }
         });
     };
 
-    // Sample documents for demo - in real app, fetch from database
-    const documents = [
-        { id: "1", name: "Employment Contract", type: "pdf", date: "2024-01-15", size: "245 KB" },
-        { id: "2", name: "ID Verification", type: "pdf", date: "2024-01-15", size: "1.2 MB" },
-        { id: "3", name: "Tax Form W-4", type: "pdf", date: "2024-01-20", size: "89 KB" },
-    ];
+    // Use uploadedDocs state instead of hardcoded array
+    const documents = uploadedDocs;
 
     return (
         <>
+            {/* Hidden file input */}
+            <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                className="hidden"
+            />
+            
             <div className="space-y-3">
                 <button 
                     onClick={() => setShowBalanceModal(true)}
@@ -238,8 +303,16 @@ export function EmployeeQuickActions({ employeeId, employeeName, leaveBalances }
                                 </div>
                             )}
 
-                            <button className="w-full mt-4 py-3 border border-dashed border-white/20 rounded-lg text-slate-400 hover:border-[#00f2ff]/50 hover:text-[#00f2ff] transition-colors">
-                                + Upload New Document
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="w-full mt-4 py-3 border border-dashed border-white/20 rounded-lg text-slate-400 hover:border-[#00f2ff]/50 hover:text-[#00f2ff] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isUploading ? (
+                                    <><Loader2 size={16} className="animate-spin" /> Uploading...</>
+                                ) : (
+                                    <><Upload size={16} /> Upload New Document</>
+                                )}
                             </button>
                         </div>
                         <div className="p-6 border-t border-white/10">

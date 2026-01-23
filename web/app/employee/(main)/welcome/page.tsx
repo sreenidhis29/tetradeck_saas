@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { WelcomeAnimation } from "@/components/onboarding/welcome-animation";
@@ -12,6 +13,7 @@ export default function EmployeeWelcomePage() {
     const { user } = useUser();
     const [phase, setPhase] = useState<"welcome" | "tutorial" | "done">("welcome");
     const [accessData, setAccessData] = useState<any>(null);
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         const check = async () => {
@@ -19,6 +21,11 @@ export default function EmployeeWelcomePage() {
             setAccessData(access);
             
             // If welcome already shown, skip to tutorial
+            const forceTutorial = searchParams?.get("tutorial") === "1";
+            if (forceTutorial) {
+                setPhase("tutorial");
+                return;
+            }
             if (!access.showWelcome && access.showTutorial) {
                 setPhase("tutorial");
             } else if (!access.showWelcome && !access.showTutorial) {
@@ -27,7 +34,7 @@ export default function EmployeeWelcomePage() {
             }
         };
         check();
-    }, [router]);
+    }, [router, searchParams]);
 
     const handleWelcomeComplete = () => {
         if (accessData?.showTutorial) {

@@ -52,6 +52,7 @@ export default async function HRDashboard() {
                 <div className="glass-panel px-4 py-2 flex gap-4 text-sm font-mono text-slate-300">
                     <span>Server: <span className="text-green-400">Node-Main</span></span>
                     <span>Status: <span className="text-green-400">Operational</span></span>
+                    <Link href="/hr/welcome?tutorial=1" className="text-cyan-400 hover:text-cyan-300">Open Guide</Link>
                 </div>
             </header>
 
