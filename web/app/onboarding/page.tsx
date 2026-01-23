@@ -1,8 +1,49 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { syncUser } from "@/app/actions/onboarding";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { RefreshCw, AlertTriangle, Home } from "lucide-react";
+
+// Error component with better UX
+function OnboardingError({ error, canRetry = true }: { error?: string; canRetry?: boolean }) {
+    return (
+        <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
+            <div className="max-w-md w-full text-center">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <AlertTriangle className="w-10 h-10 text-amber-400" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Unable to Load Profile</h1>
+                <p className="text-slate-400 mb-6">
+                    {error || "We couldn't load your profile. This might be a temporary issue."}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    {canRetry && (
+                        <a
+                            href="/onboarding"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors font-medium"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Try Again
+                        </a>
+                    )}
+                    <a
+                        href="/"
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                    >
+                        <Home className="w-4 h-4" />
+                        Go Home
+                    </a>
+                </div>
+                <p className="mt-8 text-sm text-slate-500">
+                    If this persists, please{" "}
+                    <a href="mailto:support@continuum.hr" className="text-cyan-400 hover:text-cyan-300">
+                        contact support
+                    </a>
+                </p>
+            </div>
+        </div>
+    );
+}
 
 export default async function OnboardingPage(props: { searchParams: Promise<{ intent?: string }> }) {
     const searchParams = await props.searchParams;
@@ -13,8 +54,9 @@ export default async function OnboardingPage(props: { searchParams: Promise<{ in
     const syncRes = await syncUser();
 
     if (!syncRes?.success || !syncRes.employee) {
-        // In production, redirection to an error page or refresh hint is better
-        return <div className="text-white p-10">Error loading profile. Please refresh or contact support.</div>;
+        const errorMessage = syncRes?.error || "Failed to sync your identity. Please try again.";
+        console.error("[Onboarding] Sync failed:", errorMessage);
+        return <OnboardingError error={errorMessage} />;
     }
 
     const employee = syncRes.employee;

@@ -26,10 +26,18 @@ interface OnboardingData {
    ========================================================================= */
 export async function syncUser() {
     const user = await currentUser();
-    if (!user) return null;
+    if (!user) {
+        console.error("[syncUser] No authenticated user found");
+        return { success: false, error: "Not authenticated. Please sign in.", employee: null };
+    }
 
     try {
         const email = user.emailAddresses[0]?.emailAddress;
+        if (!email) {
+            console.error("[syncUser] User has no email address");
+            return { success: false, error: "No email address found on your account.", employee: null };
+        }
+
         const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown";
 
         const employee = await prisma.employee.upsert({
@@ -58,9 +66,18 @@ export async function syncUser() {
             onboardingData: employee.onboarding_data as OnboardingData | null,
             onboardingStep: employee.onboarding_step,
         };
-    } catch (error) {
-        console.error("Sync User Error:", error);
-        return { success: false, error: "Failed to sync identity.", employee: null };
+    } catch (error: any) {
+        console.error("[syncUser] Database error:", error?.message || error);
+        
+        // Provide more specific error messages
+        if (error?.code === 'P2002') {
+            return { success: false, error: "A duplicate record exists. Please contact support.", employee: null };
+        }
+        if (error?.code === 'P1001' || error?.code === 'P1002') {
+            return { success: false, error: "Database connection issue. Please try again in a moment.", employee: null };
+        }
+        
+        return { success: false, error: "Failed to load your profile. Please try again.", employee: null };
     }
 }
 
