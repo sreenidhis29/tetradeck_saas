@@ -33,7 +33,7 @@ export default function EmployeeSignInPage() {
 
                     <SignIn
                         path="/employee/sign-in"
-                        forceRedirectUrl="/employee/dashboard"
+                        forceRedirectUrl="/onboarding?intent=employee"
                         appearance={{
                             elements: {
                                 rootBox: "w-full",

@@ -54,7 +54,7 @@ export default function HRSignInPage() {
 
                     <SignIn
                         path="/hr/sign-in"
-                        forceRedirectUrl="/hr/dashboard"
+                        forceRedirectUrl="/onboarding?intent=hr"
                         appearance={{
                             elements: {
                                 rootBox: "w-full",
