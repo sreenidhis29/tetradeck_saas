@@ -52,8 +52,9 @@ export default async function DashboardLayout({
     }
 
     // Check if onboarding is complete (for employees, need HR approval)
+    // Note: HR sets onboarding_status to "approved" when approving employees
     const isOnboardingComplete = 
-        employee.onboarding_status === "completed" &&
+        (employee.onboarding_status === "completed" || employee.onboarding_status === "approved") &&
         employee.onboarding_completed === true &&
         employee.approval_status === "approved" &&
         employee.org_id !== null &&
