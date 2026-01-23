@@ -7,8 +7,8 @@ Port: 8001
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 import os
 import re
 import json
@@ -126,12 +126,15 @@ from urllib.parse import quote_plus
 _connection_pool = None
 
 class PooledConnection:
-    """Wrapper around psycopg2 connection that ignores close() calls"""
+    """Wrapper around psycopg connection that ignores close() calls"""
     def __init__(self, conn):
         self._conn = conn
         
     def cursor(self, *args, **kwargs):
-        return self._conn.cursor(*args, **kwargs)
+        # psycopg3 uses row_factory instead of cursor_factory
+        if 'row_factory' not in kwargs:
+            kwargs['row_factory'] = dict_row
+        return self._conn.cursor(**kwargs)
     
     def commit(self):
         return self._conn.commit()
@@ -165,21 +168,20 @@ def _create_connection():
         if 'sslmode' not in url_to_use:
             sep = '&' if '?' in url_to_use else '?'
             url_to_use += f"{sep}sslmode=require"
-        conn = psycopg2.connect(url_to_use)
-        conn.autocommit = True
+        conn = psycopg.connect(url_to_use, autocommit=True)
         return conn
 
     # Priority 2: Explicit Variables Fallback
     if DB_HOST and DB_USER and DB_PASSWORD:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host=DB_HOST,
             user=DB_USER,
             password=DB_PASSWORD,
             port=DB_PORT,
             dbname=DB_NAME,
-            sslmode=DB_SSL
+            sslmode=DB_SSL,
+            autocommit=True
         )
-        conn.autocommit = True
         return conn
         
     print("❌ Database configuration missing (DATABASE_URL or DB_HOST/USER/PASS)", file=sys.stderr)
@@ -274,7 +276,7 @@ def get_leave_balance(emp_id: str, leave_type: str) -> int:
     db_leave_type = leave_type_map.get(leave_type, leave_type.lower().replace(" leave", ""))
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT annual_entitlement, carried_forward, used_days, pending_days 
             FROM leave_balances 
@@ -487,7 +489,7 @@ def get_employee_info(emp_id: str) -> Optional[Dict]:
         return None
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         # Simplify query: just get employee info. Team info inferred from department later.
         cur.execute("""
             SELECT e.*, e.department as team_name
@@ -578,7 +580,7 @@ def get_leave_balance(emp_id: str, leave_type: str) -> int:
     db_leave_type = leave_type_map.get(leave_type, leave_type.lower().replace(" leave", ""))
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         
         # LAZY INIT: Ensure record exists before querying
         ensure_leave_balance(emp_id, db_leave_type, cur)
@@ -631,7 +633,7 @@ def get_team_status(emp_id: str, start_date: str, end_date: str) -> Dict:
         return default_response
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         
         # 1. Get Employee's Department
         cur.execute("SELECT department FROM employees WHERE emp_id = %s", (emp_id,))
@@ -706,7 +708,7 @@ def get_blackout_dates(start_date: str, end_date: str) -> List[Dict]:
         return []
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         # Check table structure - some tables might not have is_active column
         cur.execute("""
             SELECT * FROM blackout_dates
@@ -730,7 +732,7 @@ def get_monthly_leave_count(emp_id: str, month: int, year: int) -> int:
         return 0
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT COALESCE(SUM(total_days), 0) as total
             FROM leave_requests
@@ -1126,7 +1128,7 @@ def save_leave_request(emp_id: str, leave_info: Dict, result: Dict) -> Optional[
         return None
     
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
         
         # 1. Get Employee Details (Country Code)
         cur.execute("SELECT country_code FROM employees WHERE emp_id = %s", (emp_id,))

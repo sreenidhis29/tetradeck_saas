@@ -27,9 +27,11 @@
     "nodemailer": "^7.0.12",
     "peer": "^1.0.2",
     "prisma": "^6.19.1",
+    "razorpay": "^2.9.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "sonner": "^2.0.7",
+    "stripe": "^14.14.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

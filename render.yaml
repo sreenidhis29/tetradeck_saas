@@ -5,6 +5,7 @@ services:
   - type: web
     name: continuum-constraint-engine
     runtime: python
+    pythonVersion: "3.11.4"
     region: singapore
     plan: free
     rootDir: web/backend
