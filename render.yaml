@@ -5,22 +5,60 @@ services:
   - type: web
     name: continuum-constraint-engine
     runtime: python
-    region: oregon
+    region: singapore
     plan: free
     rootDir: web/backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -b 0.0.0.0:$PORT constraint_engine:app
+    startCommand: gunicorn constraint_engine:app --bind 0.0.0.0:$PORT --workers 2
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: FLASK_ENV
         value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
 
-databases:
   # ============================================
-  # POSTGRESQL DATABASE (Optional - use Supabase instead)
+  # NEXT.JS FRONTEND
   # ============================================
-  - name: continuum-db
+  - type: web
+    name: continuum-frontend
+    runtime: node
+    region: singapore
     plan: free
-    region: oregon
+    rootDir: web
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_CLERK_SIGN_IN_URL
+        value: /sign-in
+      - key: NEXT_PUBLIC_CLERK_SIGN_UP_URL
+        value: /sign-up
+      - key: NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+        value: /employee/dashboard
+      - key: NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
+        value: /employee/dashboard
+      - key: HOLIDAY_API_KEY
+        sync: false
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
