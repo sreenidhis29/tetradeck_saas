@@ -47,6 +47,7 @@ const isPublicRoute = createRouteMatcher([
     '/api/test-gmail(.*)',
     '/api/test-email(.*)',
     '/api/health(.*)',
+    '/api/debug/backend-check(.*)',
     '/api/cron(.*)',
     '/api/enterprise(.*)',
     '/api/waitlist(.*)',
