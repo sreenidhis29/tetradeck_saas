@@ -112,26 +112,9 @@ export async function GET(request: Request) {
             processing_time_ms: Date.now() - startTime
         };
         
-        // 6. Log backup to audit trail
-        await prisma.auditLog.create({
-            data: {
-                action: 'SYSTEM_BACKUP',
-                entity_type: 'System',
-                entity_id: backupMetadata.backup_id,
-                actor_id: 'SYSTEM',
-                target_org: 'GLOBAL',
-                details: {
-                    type: 'daily_backup',
-                    stats: backupMetadata.database_stats,
-                    companies_backed_up: companies.length,
-                    audit_logs_archived: recentAudits.length
-                }
-            }
-        });
-        
-        // 7. Optional: Send to external storage (S3, etc.)
-        // If you have AWS S3 configured, you could store the backup there
-        // await uploadToS3(backupMetadata);
+        // 6. Log backup completion (console only for system operations)
+        // Note: We don't create audit logs for system backups to avoid circular references
+        console.log('[DB-BACKUP] Backup metadata:', JSON.stringify(backupMetadata, null, 2));
         
         console.log(`[DB-BACKUP] Completed in ${Date.now() - startTime}ms`);
         console.log(`[DB-BACKUP] Stats: ${employeeCount} employees, ${companyCount} companies`);
@@ -144,26 +127,7 @@ export async function GET(request: Request) {
         });
         
     } catch (error: any) {
-        console.error('[DB-BACKUP] Failed:', error);
-        
-        // Log failure to audit
-        try {
-            await prisma.auditLog.create({
-                data: {
-                    action: 'SYSTEM_BACKUP_FAILED',
-                    entity_type: 'System',
-                    entity_id: `BKP-FAIL-${Date.now()}`,
-                    actor_id: 'SYSTEM',
-                    target_org: 'GLOBAL',
-                    details: {
-                        error: error?.message || 'Unknown error',
-                        timestamp: new Date().toISOString()
-                    }
-                }
-            });
-        } catch (e) {
-            console.error('[DB-BACKUP] Failed to log error:', e);
-        }
+        console.error('[DB-BACKUP] Failed:', error?.message || error);
         
         return NextResponse.json({
             success: false,
