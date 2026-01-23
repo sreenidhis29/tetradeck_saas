@@ -42,7 +42,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInFallbackRedirectUrl="/onboarding"
+      signUpFallbackRedirectUrl="/onboarding"
+    >
       <html lang="en">
         <body className={`${inter.variable} antialiased bg-black text-white selection:bg-[#00f2ff] selection:text-black`}>
           <GlobalErrorBoundary>
