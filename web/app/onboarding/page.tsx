@@ -84,7 +84,20 @@ export default async function OnboardingPage(props: { searchParams: Promise<{ in
         return redirect("/employee/dashboard");
     }
 
-    // For HR who just registered, they're auto-approved (HR doesn't need approval_status)
+    // For HR who registered company but hasn't completed settings yet
+    // Let them continue with onboarding flow (don't redirect to dashboard)
+    if (employee.terms_accepted_at && employee.org_id && (employee as any).role === "hr" && !(employee as any).onboarding_completed) {
+        // Stay on onboarding page to show company settings
+        return (
+            <OnboardingFlow 
+                user={JSON.parse(JSON.stringify(employee))} 
+                intent="hr"
+                savedData={(syncRes as any).onboardingData || null}
+            />
+        );
+    }
+
+    // For HR who fully completed onboarding (including settings)
     if (employee.terms_accepted_at && employee.org_id && (employee as any).role === "hr" && (employee as any).onboarding_completed) {
         if (!(employee as any).welcome_shown) {
             return redirect("/hr/welcome");

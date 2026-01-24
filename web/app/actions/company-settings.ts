@@ -590,7 +590,7 @@ export async function completeCompanySetup(companyId: string) {
     try {
         const employee = await prisma.employee.findUnique({
             where: { clerk_id: user.id },
-            select: { org_id: true, role: true }
+            select: { emp_id: true, org_id: true, role: true }
         });
 
         if (!employee || employee.org_id !== companyId || employee.role !== 'hr') {
@@ -612,7 +612,18 @@ export async function completeCompanySetup(companyId: string) {
             data: { onboarding_completed: true }
         });
 
+        // Mark HR employee onboarding as complete
+        await prisma.employee.update({
+            where: { clerk_id: user.id },
+            data: { 
+                onboarding_completed: true,
+                onboarding_status: 'completed',
+                onboarding_step: 'complete'
+            }
+        });
+
         revalidatePath("/hr/dashboard");
+        revalidatePath("/onboarding");
         return { success: true };
     } catch (error: any) {
         console.error("[completeCompanySetup] Error:", error);

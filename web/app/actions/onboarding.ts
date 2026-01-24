@@ -219,6 +219,7 @@ export async function registerCompany(companyName: string, industry: string, siz
             });
 
             // 3. Link Employee to this Company (Admin role) - Auto-approved for HR
+            // NOTE: Don't mark onboarding_completed yet - HR still needs to configure company settings
             const updatedEmployee = await tx.employee.update({
                 where: { clerk_id: user.id },
                 data: {
@@ -226,12 +227,12 @@ export async function registerCompany(companyName: string, industry: string, siz
                     position: "HR Admin",
                     level_code: "L5",
                     role: "hr",
-                    // HR is auto-approved and completes onboarding
-                    onboarding_status: "completed",
-                    onboarding_step: "complete",
+                    // HR is auto-approved but needs to complete settings first
+                    onboarding_status: "in_progress",
+                    onboarding_step: "constraints",
                     approval_status: "approved",
                     approved_at: new Date(),
-                    onboarding_completed: true,
+                    onboarding_completed: false, // Will be set true after company settings
                     onboarding_data: { companyName, industry, size, location, website },
                 },
             });
