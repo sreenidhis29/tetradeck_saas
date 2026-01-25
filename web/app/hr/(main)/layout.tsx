@@ -23,6 +23,7 @@ export default async function DashboardLayout({
             onboarding_status: true,
             onboarding_completed: true,
             terms_accepted_at: true,
+            approval_status: true,
             company: {
                 select: { id: true, name: true }
             }
@@ -46,10 +47,11 @@ export default async function DashboardLayout({
         return redirect("/onboarding?intent=hr");
     }
 
-    // Check if onboarding is complete
+    // Check if onboarding is complete - allow for both statuses
+    // Either onboarding_completed=true OR onboarding_status='completed' should work
     const isOnboardingComplete = 
-        employee.onboarding_status === "completed" &&
-        employee.onboarding_completed === true;
+        employee.onboarding_completed === true ||
+        employee.onboarding_status === "completed";
 
     if (!isOnboardingComplete) {
         // Redirect to onboarding to complete the flow

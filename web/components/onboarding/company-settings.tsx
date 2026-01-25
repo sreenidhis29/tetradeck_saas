@@ -368,54 +368,80 @@ export function CompanySettings({
         setLeaveTypes((prev) => prev.filter((lt) => lt.code !== code));
     };
 
+    // Core save function - used by both Complete and Skip
+    const saveAllSettings = async (useDefaults: boolean = false) => {
+        const { saveWorkSchedule, saveLeaveSettings, saveApprovalSettings, createLeaveType, completeCompanySetup } =
+            await import("@/app/actions/company-settings");
+
+        // Use current state or defaults based on flag
+        const scheduleToSave = useDefaults ? DEFAULT_WORK_SCHEDULE : workSchedule;
+        const settingsToSave = useDefaults ? DEFAULT_LEAVE_SETTINGS : leaveSettings;
+        const approvalToSave = useDefaults ? DEFAULT_APPROVAL_SETTINGS : approvalSettings;
+        const typesToSave = useDefaults ? DEFAULT_LEAVE_TYPES : leaveTypes;
+
+        // Save work schedule
+        const scheduleResult = await saveWorkSchedule(companyId, scheduleToSave);
+        if (!scheduleResult.success) {
+            throw new Error(scheduleResult.error || "Failed to save work schedule");
+        }
+
+        // Save leave settings
+        const settingsResult = await saveLeaveSettings(companyId, settingsToSave);
+        if (!settingsResult.success) {
+            throw new Error(settingsResult.error || "Failed to save leave settings");
+        }
+
+        // Save approval settings (auto-approve/escalate rules)
+        const approvalResult = await saveApprovalSettings(companyId, approvalToSave);
+        if (!approvalResult.success) {
+            throw new Error(approvalResult.error || "Failed to save approval settings");
+        }
+
+        // Create leave types
+        for (const lt of typesToSave) {
+            if (!lt.id) {
+                // Only create new ones - ignore "already exists" errors
+                const result = await createLeaveType(companyId, lt);
+                if (!result.success && !result.error?.includes("already exists")) {
+                    console.warn(`Leave type ${lt.code} creation failed:`, result.error);
+                    // Don't throw - continue with other types
+                }
+            }
+        }
+
+        // Complete setup - marks onboarding as complete
+        const completeResult = await completeCompanySetup(companyId);
+        if (!completeResult.success) {
+            throw new Error(completeResult.error || "Failed to complete setup");
+        }
+    };
+
     const handleComplete = async () => {
         setIsLoading(true);
         setError(null);
 
         try {
-            // Import actions dynamically to avoid SSR issues
-            const { saveWorkSchedule, saveLeaveSettings, saveApprovalSettings, createLeaveType, completeCompanySetup } =
-                await import("@/app/actions/company-settings");
-
-            // Save work schedule
-            const scheduleResult = await saveWorkSchedule(companyId, workSchedule);
-            if (!scheduleResult.success) {
-                throw new Error(scheduleResult.error || "Failed to save work schedule");
-            }
-
-            // Save leave settings
-            const settingsResult = await saveLeaveSettings(companyId, leaveSettings);
-            if (!settingsResult.success) {
-                throw new Error(settingsResult.error || "Failed to save leave settings");
-            }
-
-            // Save approval settings (auto-approve/escalate rules)
-            const approvalResult = await saveApprovalSettings(companyId, approvalSettings);
-            if (!approvalResult.success) {
-                throw new Error(approvalResult.error || "Failed to save approval settings");
-            }
-
-            // Create leave types
-            for (const lt of leaveTypes) {
-                if (!lt.id) {
-                    // Only create new ones
-                    const result = await createLeaveType(companyId, lt);
-                    if (!result.success && !result.error?.includes("already exists")) {
-                        throw new Error(result.error || `Failed to create leave type ${lt.code}`);
-                    }
-                }
-            }
-
-            // Complete setup
-            const completeResult = await completeCompanySetup(companyId);
-            if (!completeResult.success) {
-                throw new Error(completeResult.error || "Failed to complete setup");
-            }
-
+            await saveAllSettings(false); // Use user's configured settings
             onComplete();
         } catch (err: any) {
             console.error("Setup error:", err);
             setError(err.message || "Failed to save settings");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Handle Skip for Now - saves DEFAULT settings (not empty!)
+    const handleSkipForNow = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            await saveAllSettings(true); // Use default settings
+            onComplete();
+        } catch (err: any) {
+            console.error("Skip setup error:", err);
+            setError(err.message || "Failed to save default settings");
         } finally {
             setIsLoading(false);
         }
@@ -527,12 +553,10 @@ export function CompanySettings({
                     <div className="flex gap-3 ml-auto">
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                // Skip with defaults
-                                onComplete();
-                            }}
+                            onClick={handleSkipForNow}
+                            disabled={isLoading}
                         >
-                            Skip for Now
+                            {isLoading ? "Saving..." : "Skip for Now"}
                         </Button>
                         <Button onClick={handleComplete} disabled={isLoading}>
                             {isLoading ? (

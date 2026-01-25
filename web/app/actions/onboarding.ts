@@ -535,6 +535,62 @@ export async function getPendingEmployeeApprovals() {
     }
 }
 
+// Seed leave balances for a newly approved employee
+async function seedLeaveBalancesForEmployee(empId: string, orgId: string) {
+    try {
+        // Get company's leave types
+        const leaveTypes = await prisma.leaveType.findMany({
+            where: { company_id: orgId }
+        });
+
+        if (leaveTypes.length === 0) {
+            console.log(`[seedLeaveBalances] No leave types found for org ${orgId}, skipping`);
+            return;
+        }
+
+        // Get employee's country code
+        const employee = await prisma.employee.findUnique({
+            where: { emp_id: empId },
+            select: { country_code: true }
+        });
+
+        const currentYear = new Date().getFullYear();
+        const countryCode = employee?.country_code || 'IN'; // Default to India
+
+        // Create leave balance for each leave type
+        for (const lt of leaveTypes) {
+            // Check if balance already exists
+            const existing = await prisma.leaveBalance.findFirst({
+                where: {
+                    emp_id: empId,
+                    leave_type: lt.code,
+                    year: currentYear
+                }
+            });
+
+            if (!existing) {
+                await prisma.leaveBalance.create({
+                    data: {
+                        emp_id: empId,
+                        country_code: countryCode,
+                        leave_type: lt.code,
+                        year: currentYear,
+                        annual_entitlement: lt.annual_quota,
+                        used_days: 0,
+                        pending_days: 0,
+                        carried_forward: 0,
+                    }
+                });
+            }
+        }
+
+        console.log(`[seedLeaveBalances] Created ${leaveTypes.length} leave balances for employee ${empId}`);
+    } catch (error) {
+        console.error(`[seedLeaveBalances] Error:`, error);
+        // Don't throw - this is non-critical
+    }
+}
+
 // Approve an employee
 export async function approveEmployee(empId: string) {
     const user = await currentUser();
@@ -556,11 +612,16 @@ export async function approveEmployee(empId: string) {
                 approval_status: "approved",
                 approved_by: hrEmployee.emp_id,
                 approved_at: new Date(),
-                onboarding_status: "approved",
-                onboarding_step: "welcome",
+                onboarding_status: "completed",
+                onboarding_step: "complete",
                 onboarding_completed: true,
             },
         });
+
+        // CRITICAL: Seed leave balances for the approved employee
+        if (hrEmployee.org_id) {
+            await seedLeaveBalancesForEmployee(empId, hrEmployee.org_id);
+        }
 
         // Log audit event
         await logAudit({
