@@ -40,7 +40,7 @@ export default async function HRDashboard() {
         );
     }
 
-    const { companyName, totalEmployees, pendingLeaves, activeLeaves, needsAttention } = res.data;
+    const { companyName, totalEmployees, pendingLeaves, activeLeaves, needsAttention, employeeTrend, approvalRate, approvalTrend } = res.data;
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
 
@@ -95,7 +95,7 @@ export default async function HRDashboard() {
                     title="Total Employees" 
                     value={totalEmployees.toString()} 
                     icon={Users}
-                    trend="+2 this week"
+                    trend={employeeTrend || 'No change this week'}
                     color="purple"
                 />
                 <MetricCard 
@@ -115,9 +115,9 @@ export default async function HRDashboard() {
                 />
                 <MetricCard 
                     title="Approval Rate" 
-                    value="94%"
+                    value={`${approvalRate ?? 100}%`}
                     icon={TrendingUp}
-                    trend="+5% this month"
+                    trend={approvalTrend || 'Same as last month'}
                     color="emerald"
                 />
             </div>

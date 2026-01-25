@@ -5,24 +5,40 @@
  * Shows uptime, service health, SLA guarantees, and incident history.
  * 
  * Access: /status (public, no auth required)
+ * 
+ * Critical Fixes: #4, #8, #9, #10, #11 - Real data from database
  */
 
 import { getSystemStatus } from '@/lib/status/health';
+import { getSLATiers } from '@/app/actions/platform-stats';
+import { getRecentIncidents } from '@/app/actions/system-status';
 import { CheckCircle2, AlertTriangle, XCircle, Clock, ExternalLink, Shield, Zap, Award } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 60; // Revalidate every minute
 
-// SLA Configuration by Tier
-const SLA_TIERS = {
-    FREE: { uptime: 95.0, support: 'Community', responseTime: null },
-    STARTER: { uptime: 99.0, support: 'Email (48h)', responseTime: '48 hours' },
-    GROWTH: { uptime: 99.5, support: 'Priority (24h)', responseTime: '24 hours' },
-    ENTERPRISE: { uptime: 99.9, support: '24/7 Phone', responseTime: '1 hour' },
-};
-
 export default async function StatusPage() {
-    const status = await getSystemStatus();
+    // Fetch all data in parallel
+    const [status, slaResult, incidentsResult] = await Promise.all([
+        getSystemStatus(),
+        getSLATiers(),
+        getRecentIncidents(5),
+    ]);
+
+    // Use SLA tiers from database or defaults
+    const SLA_TIERS = slaResult.success && slaResult.data 
+        ? slaResult.data 
+        : {
+            FREE: { uptime: 95.0, support: 'Community', responseTime: null },
+            STARTER: { uptime: 99.0, support: 'Email (48h)', responseTime: '48 hours' },
+            GROWTH: { uptime: 99.5, support: 'Priority (24h)', responseTime: '24 hours' },
+            ENTERPRISE: { uptime: 99.9, support: '24/7 Phone', responseTime: '1 hour' },
+        };
+
+    // Get recent incidents
+    const recentIncidents = incidentsResult.success && incidentsResult.data 
+        ? incidentsResult.data 
+        : [];
 
     const statusConfig = {
         operational: {

@@ -1401,6 +1401,276 @@ def check_rule014_half_day(leave_info: Dict, rules: Dict = None) -> Dict:
 
 
 # ============================================================
+# DYNAMIC CUSTOM RULE EVALUATION ENGINE
+# Allows HR to create ANY type of rule and have it enforced
+# ============================================================
+
+def evaluate_custom_rule(rule_id: str, rule_data: Dict, emp_id: str, leave_info: Dict, all_rules: Dict) -> Dict:
+    """
+    Evaluate a custom rule based on its category and config.
+    This allows HR to create arbitrary rules that the engine will enforce.
+    
+    Supported Categories:
+    - limits: Max days, quotas, thresholds
+    - balance: Balance checks with custom logic
+    - coverage: Team/department coverage requirements
+    - blackout: Date-based restrictions
+    - notice: Advance notice requirements
+    - calculation: Date calculation rules
+    - eligibility: Who can take leave
+    - documentation: Document requirements
+    - escalation: When to escalate for review
+    
+    Config Format Examples:
+    {
+        "max_days": 5,                      // limits
+        "min_days": 1,                      // limits
+        "applies_to_types": ["Annual"],     // which leave types
+        "excluded_types": ["Emergency"],    // exempt leave types
+        "allowed_days": ["mon", "tue"],     // specific days allowed
+        "blocked_days": ["fri", "sat"],     // specific days blocked
+        "condition": "greater_than",        // greater_than, less_than, equals
+        "threshold": 10,                    // numeric threshold
+        "escalate_always": true,            // always escalate
+        "require_manager_approval": true,   // approval chain
+        "custom_message": "...",            // custom error message
+    }
+    """
+    category = rule_data.get("category", "limits")
+    config = rule_data.get("config", {})
+    rule_name = rule_data.get("name", rule_id)
+    is_blocking = rule_data.get("is_blocking", True)
+    
+    leave_type = leave_info.get("leave_type", "")
+    days_requested = leave_info.get("days_requested", 0)
+    start_date = leave_info.get("start_date", "")
+    end_date = leave_info.get("end_date", "")
+    
+    # Check if rule applies to this leave type
+    applies_to = config.get("applies_to_types", [])
+    excluded = config.get("excluded_types", [])
+    
+    if applies_to and leave_type not in applies_to:
+        return {
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "passed": True,
+            "skipped": True,
+            "is_blocking": is_blocking,
+            "message": f"Rule not applicable to {leave_type}"
+        }
+    
+    if excluded and leave_type in excluded:
+        return {
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "passed": True,
+            "skipped": True,
+            "is_blocking": is_blocking,
+            "message": f"{leave_type} is exempt from this rule"
+        }
+    
+    passed = True
+    message = f"✅ {rule_name}: Passed"
+    details = {}
+    
+    try:
+        # ============================================================
+        # CATEGORY: LIMITS - Max/min days, quotas
+        # ============================================================
+        if category == "limits":
+            max_days = config.get("max_days")
+            min_days = config.get("min_days")
+            
+            if max_days is not None and days_requested > max_days:
+                passed = False
+                message = f"❌ {rule_name}: Exceeds maximum {max_days} days (requested: {days_requested})"
+                details["limit"] = max_days
+                details["requested"] = days_requested
+            
+            if min_days is not None and days_requested < min_days:
+                passed = False
+                message = f"❌ {rule_name}: Below minimum {min_days} days (requested: {days_requested})"
+                details["minimum"] = min_days
+                details["requested"] = days_requested
+        
+        # ============================================================
+        # CATEGORY: BLACKOUT - Date-based restrictions
+        # ============================================================
+        elif category == "blackout":
+            blocked_dates = config.get("blocked_dates", [])
+            blocked_days = config.get("blocked_days", [])  # ["friday", "saturday"]
+            
+            if start_date:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d") if end_date else start_dt
+                
+                # Check specific blocked dates
+                current = start_dt
+                while current <= end_dt:
+                    date_str = current.strftime("%Y-%m-%d")
+                    if date_str in blocked_dates:
+                        passed = False
+                        message = f"❌ {rule_name}: {date_str} is blocked"
+                        details["blocked_date"] = date_str
+                        break
+                    
+                    # Check blocked days of week
+                    day_name = current.strftime("%A").lower()
+                    if day_name in [d.lower() for d in blocked_days]:
+                        passed = False
+                        message = f"❌ {rule_name}: {day_name.title()} is not allowed"
+                        details["blocked_day"] = day_name
+                        break
+                    
+                    current += timedelta(days=1)
+        
+        # ============================================================
+        # CATEGORY: NOTICE - Advance notice requirements
+        # ============================================================
+        elif category == "notice":
+            min_notice_days = config.get("min_notice_days", 0)
+            
+            if start_date and min_notice_days > 0:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                notice_given = (start_dt - today).days
+                
+                if notice_given < min_notice_days:
+                    passed = False
+                    message = f"❌ {rule_name}: Requires {min_notice_days} days notice (given: {notice_given})"
+                    details["required_notice"] = min_notice_days
+                    details["actual_notice"] = notice_given
+        
+        # ============================================================
+        # CATEGORY: COVERAGE - Team coverage requirements
+        # ============================================================
+        elif category == "coverage":
+            min_available = config.get("min_team_available")
+            max_concurrent = config.get("max_concurrent")
+            
+            if min_available or max_concurrent:
+                team_status = get_team_status(emp_id, start_date, end_date)
+                available_after = team_status.get("available", 0)
+                on_leave = team_status.get("on_leave", 0)
+                
+                if min_available and available_after < min_available:
+                    passed = False
+                    message = f"❌ {rule_name}: Minimum {min_available} team members must be available (would be: {available_after})"
+                    details["min_required"] = min_available
+                    details["would_be_available"] = available_after
+                
+                if max_concurrent and (on_leave + 1) > max_concurrent:
+                    passed = False
+                    message = f"❌ {rule_name}: Maximum {max_concurrent} concurrent leaves allowed (would be: {on_leave + 1})"
+                    details["max_concurrent"] = max_concurrent
+                    details["would_be_on_leave"] = on_leave + 1
+        
+        # ============================================================
+        # CATEGORY: ELIGIBILITY - Who can take leave
+        # ============================================================
+        elif category == "eligibility":
+            min_tenure_months = config.get("min_tenure_months")
+            allowed_departments = config.get("allowed_departments", [])
+            blocked_departments = config.get("blocked_departments", [])
+            
+            employee = get_employee_info(emp_id)
+            if employee:
+                dept = employee.get("department", "")
+                
+                if allowed_departments and dept not in allowed_departments:
+                    passed = False
+                    message = f"❌ {rule_name}: Not available for {dept} department"
+                    details["department"] = dept
+                
+                if blocked_departments and dept in blocked_departments:
+                    passed = False
+                    message = f"❌ {rule_name}: Blocked for {dept} department"
+                    details["department"] = dept
+                
+                if min_tenure_months:
+                    join_date = employee.get("join_date")
+                    if join_date:
+                        if isinstance(join_date, str):
+                            join_dt = datetime.strptime(join_date[:10], "%Y-%m-%d")
+                        else:
+                            join_dt = join_date
+                        months_employed = (datetime.now() - join_dt).days / 30
+                        if months_employed < min_tenure_months:
+                            passed = False
+                            message = f"❌ {rule_name}: Requires {min_tenure_months} months tenure (current: {int(months_employed)})"
+                            details["required_months"] = min_tenure_months
+                            details["current_months"] = int(months_employed)
+        
+        # ============================================================
+        # CATEGORY: ESCALATION - Always escalate for review
+        # ============================================================
+        elif category == "escalation":
+            escalate_always = config.get("escalate_always", False)
+            escalate_above_days = config.get("escalate_above_days")
+            
+            if escalate_always:
+                passed = False
+                message = f"⚠️ {rule_name}: Requires manual review"
+                details["escalation_reason"] = "Always requires review"
+            
+            if escalate_above_days and days_requested > escalate_above_days:
+                passed = False
+                message = f"⚠️ {rule_name}: Leaves over {escalate_above_days} days require review"
+                details["threshold_days"] = escalate_above_days
+                details["requested_days"] = days_requested
+        
+        # ============================================================
+        # CATEGORY: DOCUMENTATION - Document requirements
+        # ============================================================
+        elif category == "documentation":
+            require_doc_above_days = config.get("require_above_days")
+            always_require = config.get("always_require", False)
+            
+            # Note: We can't actually check if docs are attached here,
+            # but we can flag that docs are required
+            if always_require or (require_doc_above_days and days_requested > require_doc_above_days):
+                details["documents_required"] = True
+                details["requirement_reason"] = "Always required" if always_require else f"Required for leaves over {require_doc_above_days} days"
+                # Don't fail the check, just add to details
+                message = f"ℹ️ {rule_name}: Supporting documents required"
+        
+        # ============================================================
+        # GENERIC THRESHOLD CHECK (works for any category)
+        # ============================================================
+        threshold = config.get("threshold")
+        condition = config.get("condition")
+        
+        if threshold is not None and condition:
+            if condition == "greater_than" and days_requested > threshold:
+                passed = False
+                message = config.get("custom_message", f"❌ {rule_name}: Exceeds threshold of {threshold}")
+            elif condition == "less_than" and days_requested < threshold:
+                passed = False
+                message = config.get("custom_message", f"❌ {rule_name}: Below threshold of {threshold}")
+            elif condition == "equals" and days_requested == threshold:
+                passed = False
+                message = config.get("custom_message", f"❌ {rule_name}: Cannot request exactly {threshold} days")
+        
+    except Exception as e:
+        print(f"⚠️ Error evaluating custom rule {rule_id}: {e}", file=sys.stderr)
+        passed = True  # Don't block on evaluation errors
+        message = f"⚠️ {rule_name}: Could not evaluate (error: {str(e)})"
+        details["error"] = str(e)
+    
+    return {
+        "rule_id": rule_id,
+        "rule_name": rule_name,
+        "passed": passed,
+        "is_blocking": is_blocking,
+        "is_custom": True,
+        "category": category,
+        "details": details,
+        "message": message
+    }
+
+
+# ============================================================
 # MAIN CONSTRAINT ENGINE - NOW FULLY DYNAMIC
 # ============================================================
 
@@ -1465,6 +1735,15 @@ def evaluate_all_constraints(emp_id: str, leave_info: Dict, org_id: str = None) 
         checks.append(check_rule013_monthly_quota(emp_id, leave_info, rules))
     if "RULE014" in rules:
         checks.append(check_rule014_half_day(leave_info, rules))
+    
+    # ============================================================
+    # DYNAMIC CUSTOM RULE EVALUATION
+    # Evaluate any rule starting with "CUSTOM" using category-based logic
+    # ============================================================
+    for rule_id, rule_data in rules.items():
+        if rule_id.startswith("CUSTOM") and rule_data.get("is_active", True):
+            custom_result = evaluate_custom_rule(rule_id, rule_data, emp_id, leave_info, rules)
+            checks.append(custom_result)
     
     # Process results
     for check in checks:

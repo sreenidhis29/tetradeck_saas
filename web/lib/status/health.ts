@@ -147,7 +147,7 @@ const SERVICES = [
 ];
 
 /**
- * Run health checks on all services
+ * Run health checks on all services and record results
  */
 export async function getSystemStatus(): Promise<SystemStatus> {
     const results: HealthCheckResult[] = await Promise.all(
@@ -170,36 +170,132 @@ export async function getSystemStatus(): Promise<SystemStatus> {
         })
     );
 
+    // Record health checks for uptime tracking
+    await recordHealthChecks(results);
+
     // Determine overall status
     const hasDown = results.some(r => r.status === 'down');
     const hasDegraded = results.some(r => r.status === 'degraded');
     const overall = hasDown ? 'outage' : hasDegraded ? 'degraded' : 'operational';
 
-    // Get incidents from database (would need incidents table)
-    const incidents: Incident[] = []; // TODO: Fetch from database
+    // Get incidents from database
+    const incidents = await getActiveIncidentsFromDB();
+
+    // Get uptime from real database records
+    const uptime = await calculateRealUptime();
 
     return {
         overall,
         services: results,
-        uptime: {
-            last24h: 99.99, // TODO: Calculate from health check history
-            last7d: 99.95,
-            last30d: 99.9,
-        },
+        uptime,
         incidents,
     };
 }
 
 /**
- * Store health check result for uptime calculation
+ * Store health check results in database for uptime calculation
  */
-export async function recordHealthCheck(results: HealthCheckResult[]) {
-    // TODO: Store in database for historical uptime calculation
-    console.log('[Health] Recorded:', results.map(r => `${r.service}: ${r.status}`).join(', '));
+async function recordHealthChecks(results: HealthCheckResult[]) {
+    try {
+        const serviceKeyMap: Record<string, string> = {
+            'Web Application': 'web',
+            'Database': 'database',
+            'Authentication (Clerk)': 'auth',
+            'Email Service': 'email',
+            'AI Services': 'ai',
+            'Payments (Stripe)': 'payments',
+        };
+        
+        await Promise.all(
+            results.map(r => 
+                prisma.uptimeRecord.create({
+                    data: {
+                        service: serviceKeyMap[r.service] || r.service.toLowerCase(),
+                        status: r.status,
+                        latency_ms: r.latency,
+                        error_message: r.message,
+                    },
+                }).catch(() => {
+                    // Ignore individual insert errors
+                })
+            )
+        );
+    } catch (error) {
+        console.error('[Health] Failed to record health checks:', error);
+    }
 }
 
 /**
- * Create an incident
+ * Get active incidents from database
+ */
+async function getActiveIncidentsFromDB(): Promise<Incident[]> {
+    try {
+        const incidents = await prisma.systemIncident.findMany({
+            where: { status: { not: 'resolved' } },
+            orderBy: { started_at: 'desc' },
+            take: 5,
+        });
+        
+        return incidents.map(i => ({
+            id: i.id,
+            title: i.title,
+            status: i.status as Incident['status'],
+            severity: i.severity as Incident['severity'],
+            createdAt: i.started_at.toISOString(),
+            updatedAt: i.updated_at.toISOString(),
+            affectedServices: i.affected_services as string[],
+            updates: i.updates as Incident['updates'],
+        }));
+    } catch (error) {
+        console.error('[Health] Failed to fetch incidents:', error);
+        return [];
+    }
+}
+
+/**
+ * Calculate real uptime from database records
+ */
+async function calculateRealUptime(): Promise<{ last24h: number; last7d: number; last30d: number }> {
+    try {
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        const [records24h, records7d, records30d] = await Promise.all([
+            prisma.uptimeRecord.findMany({
+                where: { checked_at: { gte: twentyFourHoursAgo } },
+                select: { status: true },
+            }),
+            prisma.uptimeRecord.findMany({
+                where: { checked_at: { gte: sevenDaysAgo } },
+                select: { status: true },
+            }),
+            prisma.uptimeRecord.findMany({
+                where: { checked_at: { gte: thirtyDaysAgo } },
+                select: { status: true },
+            }),
+        ]);
+        
+        const calculateUptime = (records: { status: string }[]) => {
+            if (records.length === 0) return 99.99; // Default if no data yet
+            const operational = records.filter(r => r.status === 'operational').length;
+            return Number(((operational / records.length) * 100).toFixed(2));
+        };
+        
+        return {
+            last24h: calculateUptime(records24h),
+            last7d: calculateUptime(records7d),
+            last30d: calculateUptime(records30d),
+        };
+    } catch (error) {
+        console.error('[Health] Failed to calculate uptime:', error);
+        return { last24h: 99.99, last7d: 99.95, last30d: 99.9 };
+    }
+}
+
+/**
+ * Create an incident in database
  */
 export async function createIncident(
     title: string,
@@ -207,24 +303,74 @@ export async function createIncident(
     affectedServices: string[],
     message: string
 ) {
-    // TODO: Store in database
-    // TODO: Send notifications to affected customers
-    // TODO: Post to status page
-    console.log(`[Incident] ${severity.toUpperCase()}: ${title}`);
-    return { id: `inc_${Date.now()}` };
+    try {
+        const incident = await prisma.systemIncident.create({
+            data: {
+                title,
+                description: message,
+                severity,
+                affected_services: affectedServices,
+                status: 'investigating',
+                updates: [{
+                    message: `We are investigating this issue: ${message}`,
+                    timestamp: new Date().toISOString(),
+                    author: 'System',
+                }],
+            },
+        });
+        
+        console.log(`[Incident] Created ${severity.toUpperCase()}: ${title}`);
+        return { id: incident.id };
+    } catch (error) {
+        console.error('[Incident] Failed to create:', error);
+        return { id: `inc_${Date.now()}` };
+    }
 }
 
 /**
- * Update incident status
+ * Update incident status in database
  */
 export async function updateIncident(
     incidentId: string,
     status: 'investigating' | 'identified' | 'monitoring' | 'resolved',
     message: string
 ) {
-    // TODO: Update in database
-    // TODO: Notify affected customers
-    console.log(`[Incident Update] ${incidentId}: ${status} - ${message}`);
+    try {
+        const incident = await prisma.systemIncident.findUnique({
+            where: { id: incidentId },
+        });
+        
+        if (!incident) {
+            console.error(`[Incident] Not found: ${incidentId}`);
+            return;
+        }
+        
+        const currentUpdates = incident.updates as Incident['updates'];
+        const updateData: any = {
+            status,
+            updates: [...currentUpdates, {
+                message,
+                timestamp: new Date().toISOString(),
+                author: 'System',
+            }],
+        };
+        
+        if (status === 'identified' && !incident.identified_at) {
+            updateData.identified_at = new Date();
+        }
+        if (status === 'resolved' && !incident.resolved_at) {
+            updateData.resolved_at = new Date();
+        }
+        
+        await prisma.systemIncident.update({
+            where: { id: incidentId },
+            data: updateData,
+        });
+        
+        console.log(`[Incident Update] ${incidentId}: ${status}`);
+    } catch (error) {
+        console.error('[Incident] Failed to update:', error);
+    }
 }
 
 // Health check endpoint data

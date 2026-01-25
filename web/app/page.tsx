@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { User, Briefcase, ArrowRight, Sparkles, Shield, Zap, Clock, ChevronRight, Check, Globe, Cpu } from 'lucide-react';
 import { auth } from '@clerk/nextjs/server';
+import { TrustBadges } from '@/components/marketing/DataDrivenSections';
 
 export default async function Home() {
   const { userId } = await auth();
@@ -106,20 +107,9 @@ export default async function Home() {
             </Link>
           </div>
 
-          {/* Trust Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/40 animate-fade-up delay-400">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-green-400" />
-              <span>SOC 2 Compliant</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-400" />
-              <span>99.9% Uptime</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-cyan-400" />
-              <span>Used by 500+ Companies</span>
-            </div>
+          {/* Trust Badges - Now fetched from database */}
+          <div className="animate-fade-up delay-400">
+            <TrustBadges />
           </div>
         </div>
 

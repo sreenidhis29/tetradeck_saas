@@ -3,6 +3,31 @@
 import { prisma } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 
+// Helper function to count work days in a month (excluding weekends)
+function getWorkDaysInMonth(year: number, month: number): number {
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0);
+    let workDays = 0;
+    
+    for (let d = new Date(startOfMonth); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) workDays++; // Exclude weekends
+    }
+    return workDays;
+}
+
+// Helper function to count work days passed in current month
+function getWorkDaysPassed(date: Date): number {
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    let workDays = 0;
+    
+    for (let d = new Date(startOfMonth); d <= date; d.setDate(d.getDate() + 1)) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) workDays++; // Exclude weekends
+    }
+    return workDays;
+}
+
 export async function getEmployeeDashboardStats() {
     const user = await currentUser();
     if (!user) return { success: false, error: "Unauthorized" };
@@ -129,8 +154,43 @@ export async function getEmployeeDashboardStats() {
         // 2. Pending Requests Count
         const pendingCount = employee.leave_requests.filter(r => r.status === 'pending' || r.status === 'escalated').length;
 
-        // 3. Attendance Rate
-        const attendanceRate = employee.attendances.length > 0 ? "95%" : "100%";
+        // 3. Real Attendance Rate Calculation (Critical Fix #7)
+        // Calculate from actual attendance records this month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const totalWorkDaysThisMonth = getWorkDaysInMonth(now.getFullYear(), now.getMonth());
+        
+        // Count present days from attendance records
+        const presentDays = employee.attendances.filter(a => {
+            const checkInDate = new Date(a.check_in);
+            return checkInDate >= startOfMonth && checkInDate <= now;
+        }).length;
+
+        // Calculate working days passed so far this month
+        const daysPassed = Math.min(getWorkDaysPassed(now), totalWorkDaysThisMonth);
+        
+        // Calculate attendance percentage
+        const attendancePercent = daysPassed > 0 
+            ? Math.round((presentDays / daysPassed) * 100) 
+            : 100;
+        const attendanceRate = `${attendancePercent}%`;
+
+        // Calculate performance indicator from real data (Critical Fix #12)
+        // Based on: attendance rate, late arrivals, leave pattern
+        const lateCount = employee.attendances.filter(a => a.status === 'LATE').length;
+        const lateRatio = daysPassed > 0 ? lateCount / daysPassed : 0;
+        const leaveUsageRatio = (Number(annual.total) > 0) ? (Number(annual.total) - annual.available) / Number(annual.total) : 0;
+        
+        let performance = "On Track";
+        if (attendancePercent >= 95 && lateRatio < 0.1) {
+            performance = "Excellent";
+        } else if (attendancePercent >= 85 && lateRatio < 0.2) {
+            performance = "On Track";
+        } else if (attendancePercent >= 70) {
+            performance = "Needs Attention";
+        } else {
+            performance = "Requires Review";
+        }
 
         return {
             success: true,
@@ -142,7 +202,10 @@ export async function getEmployeeDashboardStats() {
                 sickTotal: sick.total,
                 pendingRequests: pendingCount,
                 attendance: attendanceRate,
-                performance: "On Track"
+                performance,
+                // Additional metrics from real data
+                lateArrivals: lateCount,
+                attendancePercent,
             },
             allBalances: allBalances,
             history: employee.leave_requests.map(req => ({

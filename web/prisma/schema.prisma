@@ -641,3 +641,130 @@ model Payment {
   @@index([razorpay_order_id])
   @@map("payments")
 }
+
+// 21. System Incidents for Status Page (Critical Fix #9, #10, #11)
+model SystemIncident {
+  id               String    @id @default(uuid())
+  title            String
+  description      String    @db.Text
+  status           String    @default("investigating") // investigating, identified, monitoring, resolved
+  severity         String    @default("minor")         // minor, major, critical
+  affected_services Json     @default("[]")            // ["web", "database", "auth", "email"]
+  
+  // Timeline
+  started_at       DateTime  @default(now())
+  identified_at    DateTime?
+  resolved_at      DateTime?
+  
+  // Updates (stored as JSON array)
+  updates          Json      @default("[]")  // [{ message: string, timestamp: string, author: string }]
+  
+  // Notification tracking
+  notification_sent Boolean  @default(false)
+  notified_users   Json     @default("[]")   // User IDs who were notified
+  
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@index([status, created_at])
+  @@index([started_at])
+  @@map("system_incidents")
+}
+
+// 22. System Uptime Records for Real SLA Tracking (Critical Fix #4, #8)
+model UptimeRecord {
+  id           String   @id @default(uuid())
+  service      String   // web, database, auth, email, ai
+  status       String   // operational, degraded, down
+  latency_ms   Int?
+  checked_at   DateTime @default(now())
+  
+  // Error details if not operational
+  error_message String?
+  
+  @@index([service, checked_at])
+  @@map("uptime_records")
+}
+
+// 23. Platform Statistics for Marketing Page (Critical Fix #1)
+model PlatformStats {
+  id              String   @id @default(uuid())
+  stat_type       String   @unique // "companies", "employees", "uptime", "rating"
+  stat_value      String   // Actual value
+  display_value   String   // Formatted for display (e.g., "500+")
+  is_verified     Boolean  @default(false)
+  last_calculated DateTime @default(now())
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("platform_stats")
+}
+
+// 24. Pricing Plans from Database (Critical Fix #2, #3)
+model PricingPlan {
+  id              String   @id @default(uuid())
+  code            String   @unique // "FREE", "STARTER", "GROWTH", "ENTERPRISE"
+  name            String
+  description     String?
+  
+  // Pricing
+  price_monthly   Decimal  @db.Decimal(10, 2)
+  price_yearly    Decimal  @db.Decimal(10, 2)
+  currency        String   @default("INR")
+  
+  // Limits
+  max_employees   Int?     // null = unlimited
+  max_hr_admins   Int      @default(1)
+  
+  // Features (JSON array)
+  features        Json     @default("[]") // ["Leave management", "Basic attendance", ...]
+  
+  // SLA
+  sla_uptime      Decimal  @db.Decimal(5, 2) @default(95.00)  // 95.00%, 99.00%, 99.50%, 99.90%
+  sla_support     String   @default("Community")              // Community, Email (48h), Priority (24h), 24/7 Phone
+  sla_response    String?                                     // null, "48 hours", "24 hours", "1 hour"
+  
+  // Stripe/Razorpay IDs
+  stripe_price_monthly    String?
+  stripe_price_yearly     String?
+  razorpay_plan_monthly   String?
+  razorpay_plan_yearly    String?
+  
+  // Display
+  is_popular      Boolean  @default(false)
+  is_active       Boolean  @default(true)
+  sort_order      Int      @default(0)
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("pricing_plans")
+}
+
+// 25. Customer Testimonials from Real Users (Critical Fix #5)
+model Testimonial {
+  id              String   @id @default(uuid())
+  name            String
+  role            String
+  company         String
+  avatar_url      String?
+  content         String   @db.Text
+  rating          Int      @default(5)  // 1-5 stars
+  
+  // Verification
+  is_verified     Boolean  @default(false)
+  verified_at     DateTime?
+  source          String?  // "google", "trustpilot", "direct"
+  source_url      String?  // Link to original review
+  
+  // Display
+  is_featured     Boolean  @default(false)
+  is_active       Boolean  @default(true)
+  sort_order      Int      @default(0)
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("testimonials")
+}

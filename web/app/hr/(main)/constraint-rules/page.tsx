@@ -63,15 +63,77 @@ export default function ConstraintRulesPage() {
     const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
     const { confirmAction } = useConfirm();
 
-    // New rule form state
+    // New rule form state with config builder
     const [newRule, setNewRule] = useState({
         name: "",
         description: "",
         category: "limits",
         is_blocking: true,
         priority: 50,
-        config: {}
+        config: {} as Record<string, any>
     });
+
+    // Config builder state for user-friendly input
+    const [configBuilder, setConfigBuilder] = useState({
+        // Limits
+        max_days: "",
+        min_days: "",
+        // Notice
+        min_notice_days: "",
+        // Coverage
+        max_concurrent: "",
+        min_team_available: "",
+        // Blackout
+        blocked_days: [] as string[],
+        blocked_dates: [] as string[],
+        // Eligibility
+        min_tenure_months: "",
+        allowed_departments: "",
+        blocked_departments: "",
+        // Escalation
+        escalate_always: false,
+        escalate_above_days: "",
+        // General
+        applies_to_types: "",
+        excluded_types: "",
+        custom_message: "",
+    });
+
+    // Build config object from builder state when category changes
+    useEffect(() => {
+        const config: Record<string, any> = {};
+        
+        // Limits
+        if (configBuilder.max_days) config.max_days = parseInt(configBuilder.max_days);
+        if (configBuilder.min_days) config.min_days = parseInt(configBuilder.min_days);
+        
+        // Notice
+        if (configBuilder.min_notice_days) config.min_notice_days = parseInt(configBuilder.min_notice_days);
+        
+        // Coverage
+        if (configBuilder.max_concurrent) config.max_concurrent = parseInt(configBuilder.max_concurrent);
+        if (configBuilder.min_team_available) config.min_team_available = parseInt(configBuilder.min_team_available);
+        
+        // Blackout
+        if (configBuilder.blocked_days.length) config.blocked_days = configBuilder.blocked_days;
+        if (configBuilder.blocked_dates.length) config.blocked_dates = configBuilder.blocked_dates;
+        
+        // Eligibility
+        if (configBuilder.min_tenure_months) config.min_tenure_months = parseInt(configBuilder.min_tenure_months);
+        if (configBuilder.allowed_departments) config.allowed_departments = configBuilder.allowed_departments.split(",").map(s => s.trim()).filter(Boolean);
+        if (configBuilder.blocked_departments) config.blocked_departments = configBuilder.blocked_departments.split(",").map(s => s.trim()).filter(Boolean);
+        
+        // Escalation
+        if (configBuilder.escalate_always) config.escalate_always = true;
+        if (configBuilder.escalate_above_days) config.escalate_above_days = parseInt(configBuilder.escalate_above_days);
+        
+        // General filters
+        if (configBuilder.applies_to_types) config.applies_to_types = configBuilder.applies_to_types.split(",").map(s => s.trim()).filter(Boolean);
+        if (configBuilder.excluded_types) config.excluded_types = configBuilder.excluded_types.split(",").map(s => s.trim()).filter(Boolean);
+        if (configBuilder.custom_message) config.custom_message = configBuilder.custom_message;
+        
+        setNewRule(prev => ({ ...prev, config }));
+    }, [configBuilder]);
 
     // Edit form state
     const [editForm, setEditForm] = useState<{
@@ -231,6 +293,24 @@ export default function ConstraintRulesPage() {
                     is_blocking: true,
                     priority: 50,
                     config: {}
+                });
+                // Reset config builder
+                setConfigBuilder({
+                    max_days: "",
+                    min_days: "",
+                    min_notice_days: "",
+                    max_concurrent: "",
+                    min_team_available: "",
+                    blocked_days: [],
+                    blocked_dates: [],
+                    min_tenure_months: "",
+                    allowed_departments: "",
+                    blocked_departments: "",
+                    escalate_always: false,
+                    escalate_above_days: "",
+                    applies_to_types: "",
+                    excluded_types: "",
+                    custom_message: "",
                 });
                 toast.success(`Custom rule created: ${result.ruleId}`);
             } else {
@@ -878,23 +958,253 @@ export default function ConstraintRulesPage() {
                                     </div>
                                 </div>
 
-                                {/* Config */}
-                                <div>
-                                    <label className="block text-sm text-slate-400 mb-2">Configuration (JSON)</label>
-                                    <textarea
-                                        value={JSON.stringify(newRule.config, null, 2)}
-                                        onChange={(e) => {
-                                            try {
-                                                const parsed = JSON.parse(e.target.value);
-                                                setNewRule({ ...newRule, config: parsed });
-                                            } catch {
-                                                // Invalid JSON
-                                            }
-                                        }}
-                                        placeholder='{"key": "value"}'
-                                        rows={4}
-                                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
-                                    />
+                                {/* Dynamic Config Builder based on Category */}
+                                <div className="border-t border-white/10 pt-6">
+                                    <h4 className="text-white font-medium mb-4 flex items-center gap-2">
+                                        <Zap size={16} className="text-yellow-400" />
+                                        Rule Configuration
+                                    </h4>
+                                    
+                                    {/* Limits Category */}
+                                    {newRule.category === "limits" && (
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm text-slate-400 mb-2">Maximum Days Allowed</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={configBuilder.max_days}
+                                                        onChange={(e) => setConfigBuilder({...configBuilder, max_days: e.target.value})}
+                                                        placeholder="e.g., 30"
+                                                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm text-slate-400 mb-2">Minimum Days Required</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={configBuilder.min_days}
+                                                        onChange={(e) => setConfigBuilder({...configBuilder, min_days: e.target.value})}
+                                                        placeholder="e.g., 1"
+                                                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Apply to Leave Types (comma-separated, leave empty for all)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.applies_to_types}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, applies_to_types: e.target.value})}
+                                                    placeholder="e.g., Annual, Sick, Personal"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Notice Category */}
+                                    {newRule.category === "notice" && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Minimum Notice Days Required</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={configBuilder.min_notice_days}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, min_notice_days: e.target.value})}
+                                                    placeholder="e.g., 3"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                                <p className="text-xs text-slate-500 mt-1">Number of business days required before leave starts</p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Apply to Leave Types (comma-separated)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.applies_to_types}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, applies_to_types: e.target.value})}
+                                                    placeholder="e.g., Annual, Personal"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Coverage Category */}
+                                    {newRule.category === "coverage" && (
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm text-slate-400 mb-2">Max Concurrent Leaves</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={configBuilder.max_concurrent}
+                                                        onChange={(e) => setConfigBuilder({...configBuilder, max_concurrent: e.target.value})}
+                                                        placeholder="e.g., 2"
+                                                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm text-slate-400 mb-2">Min Team Available (%)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        value={configBuilder.min_team_available}
+                                                        onChange={(e) => setConfigBuilder({...configBuilder, min_team_available: e.target.value})}
+                                                        placeholder="e.g., 60"
+                                                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Blackout Category */}
+                                    {newRule.category === "blackout" && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Blocked Days of Week</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                                                        <button
+                                                            key={day}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const days = configBuilder.blocked_days.includes(day)
+                                                                    ? configBuilder.blocked_days.filter(d => d !== day)
+                                                                    : [...configBuilder.blocked_days, day];
+                                                                setConfigBuilder({...configBuilder, blocked_days: days});
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                                                                configBuilder.blocked_days.includes(day)
+                                                                    ? "bg-red-500/30 border-red-500/50 text-red-400 border"
+                                                                    : "bg-slate-800 border-white/10 text-slate-400 border"
+                                                            }`}
+                                                        >
+                                                            {day}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Blocked Dates (comma-separated YYYY-MM-DD)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.blocked_dates.join(", ")}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, blocked_dates: e.target.value.split(",").map(s => s.trim()).filter(Boolean)})}
+                                                    placeholder="e.g., 2024-12-25, 2024-12-31"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Eligibility Category */}
+                                    {newRule.category === "eligibility" && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Minimum Tenure (months)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={configBuilder.min_tenure_months}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, min_tenure_months: e.target.value})}
+                                                    placeholder="e.g., 6"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Allowed Departments Only (comma-separated)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.allowed_departments}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, allowed_departments: e.target.value})}
+                                                    placeholder="e.g., Engineering, Sales"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Blocked Departments (comma-separated)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.blocked_departments}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, blocked_departments: e.target.value})}
+                                                    placeholder="e.g., Support, Operations"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Escalation Category */}
+                                    {newRule.category === "escalation" && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setConfigBuilder({...configBuilder, escalate_always: !configBuilder.escalate_always})}
+                                                    className={`px-4 py-2 rounded-lg border transition-colors ${
+                                                        configBuilder.escalate_always
+                                                            ? "bg-amber-500/30 border-amber-500/50 text-amber-400"
+                                                            : "bg-slate-800 border-white/10 text-slate-400"
+                                                    }`}
+                                                >
+                                                    {configBuilder.escalate_always ? "✓ Always Escalate" : "Always Escalate"}
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Escalate if Leave Duration Above (days)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={configBuilder.escalate_above_days}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, escalate_above_days: e.target.value})}
+                                                    placeholder="e.g., 5"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Documentation Category */}
+                                    {newRule.category === "documentation" && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Apply to Leave Types (comma-separated)</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.applies_to_types}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, applies_to_types: e.target.value})}
+                                                    placeholder="e.g., Sick, Medical"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                                <p className="text-xs text-slate-500 mt-1">Leave types that require documentation</p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm text-slate-400 mb-2">Custom Warning Message</label>
+                                                <input
+                                                    type="text"
+                                                    value={configBuilder.custom_message}
+                                                    onChange={(e) => setConfigBuilder({...configBuilder, custom_message: e.target.value})}
+                                                    placeholder="e.g., Medical certificate required for sick leave"
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Show generated config preview */}
+                                    <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
+                                        <label className="block text-xs text-slate-500 mb-1">Generated Configuration Preview</label>
+                                        <pre className="text-xs text-cyan-400 font-mono overflow-x-auto">
+                                            {JSON.stringify(newRule.config, null, 2) || "{}"}
+                                        </pre>
+                                    </div>
                                 </div>
                             </div>
 

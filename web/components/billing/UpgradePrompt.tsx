@@ -5,10 +5,12 @@
  * 
  * Shows when users hit plan limits - the conversion driver.
  * This is what turns free users into paying customers.
+ * 
+ * Critical Fix #3 - Prices now fetched from database
  */
 
-import { useState } from 'react';
-import { Zap, X, ArrowRight, Rocket, Building2, Crown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Zap, X, ArrowRight, Rocket, Building2, Crown, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface UpgradePromptProps {
@@ -20,21 +22,27 @@ interface UpgradePromptProps {
     variant?: 'modal' | 'banner' | 'inline';
 }
 
-const TIER_DETAILS: Record<string, { icon: React.ReactNode; color: string; price: string }> = {
+interface PricingPlan {
+    code: string;
+    name: string;
+    priceMonthly: number;
+    currency: string;
+    features: string[];
+}
+
+// Default tier icons and colors
+const TIER_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
     STARTER: { 
         icon: <Rocket className="w-5 h-5" />, 
         color: 'from-blue-500 to-blue-600',
-        price: '₹2,499/mo'
     },
     GROWTH: { 
         icon: <Building2 className="w-5 h-5" />, 
         color: 'from-purple-500 to-purple-600',
-        price: '₹5,999/mo'
     },
     ENTERPRISE: { 
         icon: <Crown className="w-5 h-5" />, 
         color: 'from-amber-500 to-amber-600',
-        price: 'Custom'
     },
 };
 
@@ -47,7 +55,55 @@ export function UpgradePrompt({
     variant = 'modal' 
 }: UpgradePromptProps) {
     const [dismissed, setDismissed] = useState(false);
-    const tierDetails = TIER_DETAILS[requiredTier] || TIER_DETAILS.STARTER;
+    const [plan, setPlan] = useState<PricingPlan | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch pricing from database
+    useEffect(() => {
+        async function fetchPricing() {
+            try {
+                const res = await fetch('/api/platform/pricing');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const matchingPlan = data.data.find((p: PricingPlan) => p.code === requiredTier);
+                    if (matchingPlan) {
+                        setPlan(matchingPlan);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch pricing:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchPricing();
+    }, [requiredTier]);
+
+    const tierConfig = TIER_CONFIG[requiredTier] || TIER_CONFIG.STARTER;
+
+    // Format price from database
+    const formatPrice = () => {
+        if (!plan) return 'Loading...';
+        if (plan.priceMonthly === 0 && plan.code !== 'FREE') return 'Custom';
+        if (plan.priceMonthly === 0) return 'Free';
+        
+        if (plan.currency === 'INR') {
+            return `₹${plan.priceMonthly}/mo`;
+        }
+        return `$${plan.priceMonthly}/mo`;
+    };
+
+    // Get features description
+    const getFeaturesSummary = () => {
+        if (!plan || !plan.features || plan.features.length === 0) {
+            // Fallback descriptions
+            if (requiredTier === 'STARTER') return 'Up to 50 employees, AI-powered features, custom reports';
+            if (requiredTier === 'GROWTH') return 'Unlimited employees, API access, priority support';
+            if (requiredTier === 'ENTERPRISE') return 'SSO, dedicated support, custom integrations';
+            return 'Premium features';
+        }
+        return plan.features.slice(0, 3).join(', ');
+    };
 
     if (dismissed) return null;
 
@@ -68,7 +124,7 @@ export function UpgradePrompt({
                         <X className="w-5 h-5" />
                     </button>
 
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tierDetails.color} flex items-center justify-center mb-4`}>
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${tierConfig.color} flex items-center justify-center mb-4`}>
                         <Zap className="w-6 h-6 text-white" />
                     </div>
 
@@ -83,15 +139,19 @@ export function UpgradePrompt({
                     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                {tierDetails.icon}
+                                {tierConfig.icon}
                                 <span className="font-semibold">{requiredTier}</span>
                             </div>
-                            <span className="text-slate-400">{tierDetails.price}</span>
+                            <span className="text-slate-400">
+                                {loading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    formatPrice()
+                                )}
+                            </span>
                         </div>
                         <p className="text-sm text-slate-400">
-                            {requiredTier === 'STARTER' && 'Up to 50 employees, AI-powered features, custom reports'}
-                            {requiredTier === 'GROWTH' && 'Up to 200 employees, API access, priority support'}
-                            {requiredTier === 'ENTERPRISE' && 'Unlimited employees, SSO, dedicated support'}
+                            {getFeaturesSummary()}
                         </p>
                     </div>
 
@@ -104,7 +164,7 @@ export function UpgradePrompt({
                         </button>
                         <Link 
                             href="/hr/settings/billing"
-                            className={`flex-1 py-3 rounded-xl bg-gradient-to-r ${tierDetails.color} text-white font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all`}
+                            className={`flex-1 py-3 rounded-xl bg-gradient-to-r ${tierConfig.color} text-white font-semibold flex items-center justify-center gap-2 hover:shadow-lg transition-all`}
                         >
                             Upgrade <ArrowRight className="w-4 h-4" />
                         </Link>
@@ -117,7 +177,7 @@ export function UpgradePrompt({
     // Banner variant - top of page
     if (variant === 'banner') {
         return (
-            <div className={`bg-gradient-to-r ${tierDetails.color} px-4 py-3 flex items-center justify-between`}>
+            <div className={`bg-gradient-to-r ${tierConfig.color} px-4 py-3 flex items-center justify-between`}>
                 <div className="flex items-center gap-3">
                     <Zap className="w-5 h-5 text-white" />
                     <p className="text-white text-sm">
@@ -143,7 +203,7 @@ export function UpgradePrompt({
     return (
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-gradient-to-br ${tierDetails.color}`}>
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${tierConfig.color}`}>
                     <Zap className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -155,7 +215,7 @@ export function UpgradePrompt({
             </div>
             <Link 
                 href="/hr/settings/billing"
-                className={`px-4 py-2 rounded-lg bg-gradient-to-r ${tierDetails.color} text-white text-sm font-semibold flex items-center gap-1 hover:shadow-lg transition-all`}
+                className={`px-4 py-2 rounded-lg bg-gradient-to-r ${tierConfig.color} text-white text-sm font-semibold flex items-center gap-1 hover:shadow-lg transition-all`}
             >
                 Upgrade <ArrowRight className="w-3 h-3" />
             </Link>

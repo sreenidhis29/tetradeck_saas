@@ -48,6 +48,7 @@ const isPublicRoute = createRouteMatcher([
     '/api/test-email(.*)',
     '/api/health(.*)',
     '/api/debug/backend-check(.*)',
+    '/api/platform(.*)', // Platform stats for marketing page - public
     '/api/cron(.*)',
     '/api/security(.*)',
     '/api/enterprise(.*)',

@@ -35,13 +35,37 @@ export async function getHRDashboardStats() {
 
         const orgId = employee.company.id;
 
-        // 2. Aggregate Stats
-        const [totalEmployees, pendingLeaves, activeLeaves] = await Promise.all([
+        // Date calculations for trends
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        // 2. Aggregate Stats with Trends (Critical Fix #6)
+        const [
+            totalEmployees, 
+            newEmployeesThisWeek,
+            pendingLeaves, 
+            activeLeaves,
+            approvedThisMonth,
+            totalRequestsThisMonth,
+            approvedLastMonth,
+            totalRequestsLastMonth,
+        ] = await Promise.all([
             // Total Employees
             prisma.employee.count({
                 where: {
                     org_id: orgId,
-                    clerk_id: { not: user.id } // Exclude the admin themselves
+                    clerk_id: { not: user.id }
+                }
+            }),
+            // New employees this week
+            prisma.employee.count({
+                where: {
+                    org_id: orgId,
+                    created_at: { gte: oneWeekAgo }
                 }
             }),
             // Pending Requests (Pending + Escalated)
@@ -59,8 +83,59 @@ export async function getHRDashboardStats() {
                     start_date: { lte: new Date() },
                     end_date: { gte: new Date() }
                 }
-            })
+            }),
+            // Approved requests this month
+            prisma.leaveRequest.count({
+                where: {
+                    employee: { org_id: orgId },
+                    status: "approved",
+                    updated_at: { gte: startOfMonth }
+                }
+            }),
+            // Total requests this month
+            prisma.leaveRequest.count({
+                where: {
+                    employee: { org_id: orgId },
+                    created_at: { gte: startOfMonth }
+                }
+            }),
+            // Approved requests last month
+            prisma.leaveRequest.count({
+                where: {
+                    employee: { org_id: orgId },
+                    status: "approved",
+                    updated_at: { gte: startOfLastMonth, lte: endOfLastMonth }
+                }
+            }),
+            // Total requests last month
+            prisma.leaveRequest.count({
+                where: {
+                    employee: { org_id: orgId },
+                    created_at: { gte: startOfLastMonth, lte: endOfLastMonth }
+                }
+            }),
         ]);
+
+        // Calculate approval rate from real data
+        const approvalRateThisMonth = totalRequestsThisMonth > 0 
+            ? Math.round((approvedThisMonth / totalRequestsThisMonth) * 100) 
+            : 100;
+        const approvalRateLastMonth = totalRequestsLastMonth > 0 
+            ? Math.round((approvedLastMonth / totalRequestsLastMonth) * 100) 
+            : 100;
+        const approvalTrend = approvalRateThisMonth - approvalRateLastMonth;
+
+        // Format employee trend
+        const employeeTrend = newEmployeesThisWeek > 0 
+            ? `+${newEmployeesThisWeek} this week` 
+            : 'No change this week';
+
+        // Format approval trend
+        const approvalTrendText = approvalTrend > 0 
+            ? `+${approvalTrend}% this month` 
+            : approvalTrend < 0 
+                ? `${approvalTrend}% this month` 
+                : 'Same as last month';
 
         // 3. Get Recent Pending Requests (Needs Attention)
         const needsAttention = await prisma.leaveRequest.findMany({
@@ -87,12 +162,16 @@ export async function getHRDashboardStats() {
                 totalEmployees,
                 pendingLeaves,
                 activeLeaves,
+                // Real trend data from database (Critical Fix #6)
+                employeeTrend,
+                approvalRate: approvalRateThisMonth,
+                approvalTrend: approvalTrendText,
                 needsAttention: needsAttention.map(req => ({
-                    id: req.request_id, // Fixed: request_id not id
+                    id: req.request_id,
                     employeeName: req.employee.full_name,
                     position: req.employee.position,
                     type: req.leave_type,
-                    days: req.total_days.toString(), // Decimal to string
+                    days: req.total_days.toString(),
                     startDate: req.start_date
                 }))
             }
