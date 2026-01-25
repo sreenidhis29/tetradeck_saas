@@ -209,6 +209,13 @@ export default function EmployeeDashboard() {
     const GuideShortcut = () => (
         <div className="flex items-center justify-end gap-3 mb-4">
             <button
+                onClick={() => router.push('/employee/dashboard/advanced')}
+                className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-orange-500/20 to-pink-500/20 border border-orange-500/30 hover:border-orange-400/50 text-orange-300 flex items-center gap-2 transition-all"
+            >
+                <Sparkles className="w-4 h-4" />
+                Smart Leave Assistant
+            </button>
+            <button
                 onClick={() => router.push('/employee/dashboard/my-insights')}
                 className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/30 hover:border-purple-400/50 text-purple-300 flex items-center gap-2 transition-all"
             >
