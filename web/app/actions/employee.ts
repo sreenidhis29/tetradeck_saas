@@ -564,9 +564,9 @@ export async function checkOut() {
         if (!employee) return { success: false, error: "Employee not found" };
 
         const now = new Date();
-        // Use UTC date to avoid timezone issues
-        const todayStr = now.toISOString().split('T')[0];
-        const today = new Date(todayStr + 'T00:00:00.000Z');
+        // Use local midnight - consistent with checkIn
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         // Check if checked in
         const existing = await prisma.attendance.findUnique({
@@ -584,6 +584,11 @@ export async function checkOut() {
 
         if (existing.check_out) {
             return { success: false, error: "Already checked out today" };
+        }
+
+        // Validate check_in time exists
+        if (!existing.check_in) {
+            return { success: false, error: "Check-in time not recorded properly" };
         }
 
         // Calculate total hours

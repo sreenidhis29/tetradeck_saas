@@ -92,6 +92,7 @@ export async function clockIn(): Promise<{
 
     const employee = await prisma.employee.findFirst({
       where: { clerk_id: userId },
+      include: { company: true },
     });
 
     if (!employee) {
@@ -102,31 +103,63 @@ export async function clockIn(): Promise<{
     today.setHours(0, 0, 0, 0);
     const now = new Date();
 
-    // Check if already clocked in today
-    const existing = await prisma.attendance.findFirst({
-      where: {
-        emp_id: employee.emp_id,
-        date: today,
-      },
-    });
-
-    if (existing) {
-      return { success: false, error: "Already clocked in today" };
+    // Get company work schedule settings
+    const workStartTime = employee.company?.work_start_time || "09:00";
+    const gracePeriodMins = employee.company?.grace_period_mins || 15;
+    const workDays = (employee.company?.work_days as number[]) || [1, 2, 3, 4, 5];
+    
+    // Check if today is a work day (1=Mon, 7=Sun)
+    const todayDayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+    if (!workDays.includes(todayDayOfWeek)) {
+      return { success: false, error: "Today is not a scheduled work day" };
     }
 
-    // Determine status based on time (9 AM is standard start)
+    // Determine status based on company work start time + grace period
+    const [startHour, startMin] = workStartTime.split(':').map(Number);
     const lateThreshold = new Date(today);
-    lateThreshold.setHours(9, 15, 0, 0); // 9:15 AM grace period
+    lateThreshold.setHours(startHour, startMin + gracePeriodMins, 0, 0);
     const status = now > lateThreshold ? "LATE" : "PRESENT";
 
-    await prisma.attendance.create({
-      data: {
-        emp_id: employee.emp_id,
-        date: today,
-        check_in: now,
-        status,
-      },
-    });
+    // Use upsert to prevent race conditions - atomic operation
+    try {
+      const existing = await prisma.attendance.findUnique({
+        where: {
+          emp_id_date: {
+            emp_id: employee.emp_id,
+            date: today,
+          },
+        },
+      });
+
+      if (existing?.check_in) {
+        return { success: false, error: "Already clocked in today" };
+      }
+
+      await prisma.attendance.upsert({
+        where: {
+          emp_id_date: {
+            emp_id: employee.emp_id,
+            date: today,
+          },
+        },
+        create: {
+          emp_id: employee.emp_id,
+          date: today,
+          check_in: now,
+          status,
+        },
+        update: {
+          check_in: now,
+          status,
+        },
+      });
+    } catch (dbError: any) {
+      // Handle unique constraint violation (race condition fallback)
+      if (dbError?.code === 'P2002') {
+        return { success: false, error: "Already clocked in today" };
+      }
+      throw dbError;
+    }
 
     revalidatePath("/employee/attendance");
     return { success: true };
@@ -149,6 +182,7 @@ export async function clockOut(): Promise<{
 
     const employee = await prisma.employee.findFirst({
       where: { clerk_id: userId },
+      include: { company: true },
     });
 
     if (!employee) {
@@ -174,15 +208,21 @@ export async function clockOut(): Promise<{
       return { success: false, error: "Already clocked out" };
     }
 
+    // Get company settings for half-day calculation
+    const halfDayHours = Number(employee.company?.half_day_hours) || 4;
+    const fullDayHours = Number(employee.company?.full_day_hours) || 8;
+
     // Calculate total hours
     const checkIn = attendance.check_in!;
     const diffMs = now.getTime() - checkIn.getTime();
     const totalHours = diffMs / (1000 * 60 * 60);
 
-    // Determine final status
+    // Determine final status based on company settings
     let status = attendance.status;
-    if (totalHours < 4) {
+    if (totalHours < halfDayHours) {
       status = "HALF_DAY";
+    } else if (totalHours >= fullDayHours) {
+      status = status === "LATE" ? "LATE" : "PRESENT"; // Keep LATE if they were late
     }
 
     await prisma.attendance.update({

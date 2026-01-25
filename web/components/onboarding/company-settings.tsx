@@ -101,12 +101,28 @@ interface LeaveRule {
     applies_to_all: boolean;
 }
 
+// Auto-approval and escalation settings
+interface ApprovalSettings {
+    auto_approve_max_days: number;       // Auto-approve requests up to X days
+    auto_approve_min_notice: number;     // Require X days notice for auto-approve
+    auto_approve_leave_types: string[];  // Which leave types can be auto-approved
+    escalate_above_days: number;         // Always escalate requests > X days
+    escalate_consecutive_leaves: boolean; // Escalate if taking leave multiple times in a row
+    escalate_low_balance: boolean;       // Escalate if remaining balance is low
+    max_concurrent_leaves: number;       // Max employees on leave at same time
+    min_team_coverage: number;           // Minimum team members must be present
+    blackout_dates: string[];            // Dates when no leave is allowed
+    blackout_days_of_week: number[];     // Days of week blocked (1=Mon, 7=Sun)
+    require_document_above_days: number; // Require document for leaves > X days
+}
+
 interface CompanySettingsProps {
     companyId: string;
     initialWorkSchedule?: WorkSchedule;
     initialLeaveSettings?: LeaveSettings;
     initialLeaveTypes?: LeaveType[];
     initialLeaveRules?: LeaveRule[];
+    initialApprovalSettings?: ApprovalSettings;
     onComplete: () => void;
     onBack?: () => void;
 }
@@ -130,6 +146,20 @@ const DEFAULT_LEAVE_SETTINGS: LeaveSettings = {
     carry_forward_max: 5,
     probation_leave: false,
     negative_balance: false,
+};
+
+const DEFAULT_APPROVAL_SETTINGS: ApprovalSettings = {
+    auto_approve_max_days: 3,
+    auto_approve_min_notice: 1,
+    auto_approve_leave_types: ["CL", "SL"],
+    escalate_above_days: 5,
+    escalate_consecutive_leaves: true,
+    escalate_low_balance: true,
+    max_concurrent_leaves: 3,
+    min_team_coverage: 2,
+    blackout_dates: [],
+    blackout_days_of_week: [],
+    require_document_above_days: 3,
 };
 
 const DEFAULT_LEAVE_TYPES: LeaveType[] = [
@@ -270,6 +300,7 @@ export function CompanySettings({
     initialLeaveSettings,
     initialLeaveTypes,
     initialLeaveRules,
+    initialApprovalSettings,
     onComplete,
     onBack,
 }: CompanySettingsProps) {
@@ -285,6 +316,11 @@ export function CompanySettings({
     // Leave Settings State
     const [leaveSettings, setLeaveSettings] = useState<LeaveSettings>(
         initialLeaveSettings || DEFAULT_LEAVE_SETTINGS
+    );
+
+    // Approval Settings State (for auto-approve/escalate rules)
+    const [approvalSettings, setApprovalSettings] = useState<ApprovalSettings>(
+        initialApprovalSettings || DEFAULT_APPROVAL_SETTINGS
     );
 
     // Leave Types State
@@ -338,7 +374,7 @@ export function CompanySettings({
 
         try {
             // Import actions dynamically to avoid SSR issues
-            const { saveWorkSchedule, saveLeaveSettings, createLeaveType, completeCompanySetup } =
+            const { saveWorkSchedule, saveLeaveSettings, saveApprovalSettings, createLeaveType, completeCompanySetup } =
                 await import("@/app/actions/company-settings");
 
             // Save work schedule
@@ -351,6 +387,12 @@ export function CompanySettings({
             const settingsResult = await saveLeaveSettings(companyId, leaveSettings);
             if (!settingsResult.success) {
                 throw new Error(settingsResult.error || "Failed to save leave settings");
+            }
+
+            // Save approval settings (auto-approve/escalate rules)
+            const approvalResult = await saveApprovalSettings(companyId, approvalSettings);
+            if (!approvalResult.success) {
+                throw new Error(approvalResult.error || "Failed to save approval settings");
             }
 
             // Create leave types
@@ -467,7 +509,10 @@ export function CompanySettings({
                     <TabsContent value="policies" className="space-y-6 mt-6">
                         <LeavePoliciesSection
                             settings={leaveSettings}
+                            approvalSettings={approvalSettings}
+                            leaveTypes={leaveTypes}
                             onChange={setLeaveSettings}
+                            onApprovalChange={setApprovalSettings}
                         />
                     </TabsContent>
                 </Tabs>
@@ -1066,18 +1111,58 @@ function LeaveTypeForm({
 }
 
 // =========================================================================
-// LEAVE POLICIES SECTION
+// LEAVE POLICIES SECTION (with Auto-Approve/Escalate Rules)
 // =========================================================================
 
 function LeavePoliciesSection({
     settings,
+    approvalSettings,
+    leaveTypes,
     onChange,
+    onApprovalChange,
 }: {
     settings: LeaveSettings;
+    approvalSettings: ApprovalSettings;
+    leaveTypes: LeaveType[];
     onChange: (s: LeaveSettings) => void;
+    onApprovalChange: (s: ApprovalSettings) => void;
 }) {
+    const [newBlackoutDate, setNewBlackoutDate] = useState("");
+
+    const addBlackoutDate = () => {
+        if (newBlackoutDate && !approvalSettings.blackout_dates.includes(newBlackoutDate)) {
+            onApprovalChange({
+                ...approvalSettings,
+                blackout_dates: [...approvalSettings.blackout_dates, newBlackoutDate].sort()
+            });
+            setNewBlackoutDate("");
+        }
+    };
+
+    const removeBlackoutDate = (date: string) => {
+        onApprovalChange({
+            ...approvalSettings,
+            blackout_dates: approvalSettings.blackout_dates.filter(d => d !== date)
+        });
+    };
+
+    const toggleBlackoutDay = (day: number) => {
+        const newDays = approvalSettings.blackout_days_of_week.includes(day)
+            ? approvalSettings.blackout_days_of_week.filter(d => d !== day)
+            : [...approvalSettings.blackout_days_of_week, day].sort();
+        onApprovalChange({ ...approvalSettings, blackout_days_of_week: newDays });
+    };
+
+    const toggleAutoApproveType = (code: string) => {
+        const newTypes = approvalSettings.auto_approve_leave_types.includes(code)
+            ? approvalSettings.auto_approve_leave_types.filter(c => c !== code)
+            : [...approvalSettings.auto_approve_leave_types, code];
+        onApprovalChange({ ...approvalSettings, auto_approve_leave_types: newTypes });
+    };
+
     return (
         <div className="space-y-6">
+            {/* Leave Year Settings - Moved to top for basic config */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -1133,6 +1218,7 @@ function LeavePoliciesSection({
                 </CardContent>
             </Card>
 
+            {/* General Leave Policies */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -1164,7 +1250,7 @@ function LeavePoliciesSection({
                             <div>
                                 <Label className="text-base">Allow Negative Balance</Label>
                                 <p className="text-sm text-muted-foreground">
-                                    Allow employees to take leave even if balance is zero (will be adjusted from next allocation)
+                                    Allow employees to take leave even if balance is zero (adjusted from next allocation)
                                 </p>
                             </div>
                             <Switch
@@ -1178,13 +1264,317 @@ function LeavePoliciesSection({
                 </CardContent>
             </Card>
 
+            {/* Section Header for Approval Rules */}
+            <div className="pt-4 border-t">
+                <h3 className="text-lg font-semibold mb-1">AI Approval & Escalation Rules</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Configure how the AI constraint engine automatically approves or escalates leave requests
+                </p>
+            </div>
+
+            {/* Auto-Approve Rules */}
+            <Card className="border-green-500/30 bg-green-500/5">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 text-green-600">
+                        <Check className="h-5 w-5" />
+                        Auto-Approve Rules
+                    </CardTitle>
+                    <CardDescription>
+                        Configure when leave requests should be automatically approved without HR intervention
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Auto-approve leaves up to (days)</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={30}
+                                value={approvalSettings.auto_approve_max_days}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        auto_approve_max_days: parseInt(e.target.value) || 1,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Leaves ≤ {approvalSettings.auto_approve_max_days} days will be auto-approved
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Minimum notice required (days)</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={30}
+                                value={approvalSettings.auto_approve_min_notice}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        auto_approve_min_notice: parseInt(e.target.value) || 0,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Request must be made {approvalSettings.auto_approve_min_notice} days in advance
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Auto-approve these leave types</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {leaveTypes.map((lt) => (
+                                <Button
+                                    key={lt.code}
+                                    type="button"
+                                    variant={approvalSettings.auto_approve_leave_types.includes(lt.code) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleAutoApproveType(lt.code)}
+                                    className={cn(
+                                        "gap-2",
+                                        approvalSettings.auto_approve_leave_types.includes(lt.code) && "bg-green-600 hover:bg-green-700"
+                                    )}
+                                >
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: lt.color }} />
+                                    {lt.code}
+                                </Button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Only selected leave types can be auto-approved
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Escalation Rules */}
+            <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 text-amber-600">
+                        <AlertCircle className="h-5 w-5" />
+                        Escalation Rules
+                    </CardTitle>
+                    <CardDescription>
+                        Configure when leave requests should always be sent to HR for review
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Escalate leaves above (days)</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={90}
+                                value={approvalSettings.escalate_above_days}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        escalate_above_days: parseInt(e.target.value) || 5,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Leaves &gt; {approvalSettings.escalate_above_days} days require HR approval
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Require document above (days)</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={30}
+                                value={approvalSettings.require_document_above_days}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        require_document_above_days: parseInt(e.target.value) || 3,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Medical/supporting document required for leaves &gt; {approvalSettings.require_document_above_days} days
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-background">
+                            <div>
+                                <Label className="text-base">Escalate consecutive leave requests</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Escalate if employee takes leave multiple times in a short period
+                                </p>
+                            </div>
+                            <Switch
+                                checked={approvalSettings.escalate_consecutive_leaves}
+                                onCheckedChange={(v) =>
+                                    onApprovalChange({ ...approvalSettings, escalate_consecutive_leaves: v })
+                                }
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-background">
+                            <div>
+                                <Label className="text-base">Escalate when balance is low</Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Escalate if remaining leave balance after approval would be &lt; 2 days
+                                </p>
+                            </div>
+                            <Switch
+                                checked={approvalSettings.escalate_low_balance}
+                                onCheckedChange={(v) =>
+                                    onApprovalChange({ ...approvalSettings, escalate_low_balance: v })
+                                }
+                            />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Team Coverage Rules */}
+            <Card className="border-blue-500/30 bg-blue-500/5">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 text-blue-600">
+                        <Building className="h-5 w-5" />
+                        Team Coverage Rules
+                    </CardTitle>
+                    <CardDescription>
+                        Ensure minimum team presence and limit concurrent leaves
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Maximum concurrent leaves</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={approvalSettings.max_concurrent_leaves}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        max_concurrent_leaves: parseInt(e.target.value) || 3,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Max {approvalSettings.max_concurrent_leaves} employees can be on leave at the same time
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Minimum team coverage</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={approvalSettings.min_team_coverage}
+                                onChange={(e) =>
+                                    onApprovalChange({
+                                        ...approvalSettings,
+                                        min_team_coverage: parseInt(e.target.value) || 2,
+                                    })
+                                }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                At least {approvalSettings.min_team_coverage} team members must be present
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Blackout Dates */}
+            <Card className="border-red-500/30 bg-red-500/5">
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 text-red-600">
+                        <X className="h-5 w-5" />
+                        Blackout Periods
+                    </CardTitle>
+                    <CardDescription>
+                        Dates and days when leave requests will not be auto-approved
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Blackout Days of Week */}
+                    <div className="space-y-2">
+                        <Label>Block leave on specific days</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {DAYS_OF_WEEK.map((day) => (
+                                <Button
+                                    key={day.value}
+                                    type="button"
+                                    variant={approvalSettings.blackout_days_of_week.includes(day.value) ? "destructive" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleBlackoutDay(day.value)}
+                                    className="w-16"
+                                >
+                                    {day.label}
+                                </Button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Leave requests on these days will require HR approval
+                        </p>
+                    </div>
+
+                    {/* Blackout Dates */}
+                    <div className="space-y-3">
+                        <Label>Blackout dates</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                type="date"
+                                value={newBlackoutDate}
+                                onChange={(e) => setNewBlackoutDate(e.target.value)}
+                                className="flex-1"
+                            />
+                            <Button type="button" onClick={addBlackoutDate} variant="outline" size="icon">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        {approvalSettings.blackout_dates.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {approvalSettings.blackout_dates.map((date) => (
+                                    <Badge
+                                        key={date}
+                                        variant="destructive"
+                                        className="px-3 py-1 flex items-center gap-2"
+                                    >
+                                        {new Date(date).toLocaleDateString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric',
+                                            year: 'numeric'
+                                        })}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeBlackoutDate(date)}
+                                            className="hover:bg-red-700 rounded-full p-0.5"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                            No leave will be auto-approved on these specific dates (e.g., audit days, peak business periods)
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Info Box */}
             <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
                 <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
-                    <p className="font-medium">These settings can be changed later</p>
+                    <p className="font-medium">How the AI Constraint Engine works</p>
                     <p className="mt-1">
-                        You can modify all company settings from the HR Settings page after completing the onboarding process.
+                        When an employee submits a leave request, the system automatically evaluates it against your configured rules. 
+                        Requests meeting auto-approve criteria are approved instantly. Others are escalated to HR for manual review.
                     </p>
                 </div>
             </div>

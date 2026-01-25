@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limit: 10 join attempts per hour per IP (in case of typos)
+        const rateLimit = await checkRateLimit(req, { windowMs: 3600000, maxRequests: 10 });
+        if (!rateLimit.allowed) {
+            return rateLimitResponse(rateLimit.resetTime);
+        }
+
         const { userId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

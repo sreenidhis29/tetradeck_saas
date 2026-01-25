@@ -593,3 +593,165 @@ function calculateYearlySummary(monthlyRecords: ReturnType<typeof calculateMonth
         })()
     };
 }
+
+// =========================================================================
+// YEAR-END CARRY FORWARD
+// Process leave balance carry forward for a company at year end
+// =========================================================================
+export async function processYearEndCarryForward(companyId?: string, fromYear?: number) {
+    const authResult = await verifyAccess(['hr', 'admin']);
+    if (!authResult.success) return authResult;
+    
+    const { employee } = authResult;
+    const targetCompanyId = companyId || employee!.org_id;
+    const sourceYear = fromYear || new Date().getFullYear() - 1;
+    const targetYear = sourceYear + 1;
+
+    try {
+        // 1. Get company settings for carry forward limits
+        const company = await prisma.company.findUnique({
+            where: { id: targetCompanyId! },
+            select: {
+                carry_forward_max: true,
+                leave_year_start: true,
+            }
+        });
+
+        if (!company) {
+            return { success: false, error: "Company not found" };
+        }
+
+        const companyMaxCarryForward = company.carry_forward_max || 5;
+
+        // 2. Get all leave types for this company that allow carry forward
+        const leaveTypes = await prisma.leaveType.findMany({
+            where: {
+                company_id: targetCompanyId!,
+                is_active: true,
+                carry_forward: true, // Only types that allow carry forward
+            }
+        });
+
+        // 3. Get all employees in this company
+        const employees = await prisma.employee.findMany({
+            where: {
+                org_id: targetCompanyId,
+                is_active: true,
+            },
+            select: { emp_id: true, country_code: true }
+        });
+
+        let processedCount = 0;
+        let skippedCount = 0;
+        const results: { emp_id: string; carryForward: Record<string, number> }[] = [];
+
+        // 4. Process each employee
+        for (const emp of employees) {
+            const employeeCarryForward: Record<string, number> = {};
+
+            // 5. For each leave type that allows carry forward
+            for (const leaveType of leaveTypes) {
+                // Get source year balance
+                const sourceBalance = await prisma.leaveBalance.findUnique({
+                    where: {
+                        emp_id_leave_type_year: {
+                            emp_id: emp.emp_id,
+                            leave_type: leaveType.code,
+                            year: sourceYear
+                        }
+                    }
+                });
+
+                if (!sourceBalance) {
+                    continue; // No balance to carry forward
+                }
+
+                // Calculate remaining balance
+                const remaining = Number(sourceBalance.annual_entitlement) 
+                    + Number(sourceBalance.carried_forward) 
+                    - Number(sourceBalance.used_days) 
+                    - Number(sourceBalance.pending_days);
+
+                if (remaining <= 0) {
+                    continue; // Nothing to carry forward
+                }
+
+                // Apply limits: minimum of remaining, type max, and company max
+                const typeMaxCarry = leaveType.max_carry_forward || companyMaxCarryForward;
+                const carryForwardAmount = Math.min(remaining, typeMaxCarry, companyMaxCarryForward);
+
+                if (carryForwardAmount <= 0) {
+                    continue;
+                }
+
+                // 6. Create or update next year's balance with carry forward
+                await prisma.leaveBalance.upsert({
+                    where: {
+                        emp_id_leave_type_year: {
+                            emp_id: emp.emp_id,
+                            leave_type: leaveType.code,
+                            year: targetYear
+                        }
+                    },
+                    create: {
+                        emp_id: emp.emp_id,
+                        leave_type: leaveType.code,
+                        year: targetYear,
+                        country_code: emp.country_code || "IN",
+                        annual_entitlement: leaveType.annual_quota,
+                        carried_forward: carryForwardAmount,
+                        used_days: 0,
+                        pending_days: 0
+                    },
+                    update: {
+                        carried_forward: carryForwardAmount
+                    }
+                });
+
+                employeeCarryForward[leaveType.code] = carryForwardAmount;
+                processedCount++;
+            }
+
+            if (Object.keys(employeeCarryForward).length > 0) {
+                results.push({ emp_id: emp.emp_id, carryForward: employeeCarryForward });
+            } else {
+                skippedCount++;
+            }
+        }
+
+        // 7. Log audit
+        await logAudit({
+            org_id: targetCompanyId!,
+            actor_id: employee!.emp_id,
+            action: AuditAction.LEAVE_STATUS_CHANGE,
+            resource_type: "leave_balance",
+            details: {
+                action: "year_end_carry_forward",
+                from_year: sourceYear,
+                to_year: targetYear,
+                employees_processed: results.length,
+                balances_updated: processedCount,
+                employees_skipped: skippedCount
+            }
+        });
+
+        revalidatePath("/hr/leave-records");
+
+        return {
+            success: true,
+            message: `Carry forward completed: ${results.length} employees processed, ${processedCount} balances updated`,
+            data: {
+                from_year: sourceYear,
+                to_year: targetYear,
+                employees_processed: results.length,
+                balances_updated: processedCount,
+                employees_skipped: skippedCount,
+                details: results
+            }
+        };
+
+    } catch (error: any) {
+        console.error("[processYearEndCarryForward] Error:", error?.message || error);
+        return { success: false, error: `Failed to process carry forward: ${error?.message || 'Unknown error'}` };
+    }
+}

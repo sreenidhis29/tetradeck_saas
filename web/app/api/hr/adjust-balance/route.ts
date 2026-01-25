@@ -26,6 +26,31 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
+        // Validate adjustment is a reasonable number
+        const adjustmentNum = Number(adjustment);
+        if (isNaN(adjustmentNum) || adjustmentNum < -365 || adjustmentNum > 365) {
+            return NextResponse.json({ error: "Adjustment must be between -365 and 365 days" }, { status: 400 });
+        }
+
+        // Validate reason length
+        if (typeof reason !== 'string' || reason.length < 5 || reason.length > 500) {
+            return NextResponse.json({ error: "Reason must be between 5 and 500 characters" }, { status: 400 });
+        }
+
+        // SECURITY: Verify target employee belongs to same organization
+        const targetEmployee = await prisma.employee.findUnique({
+            where: { emp_id: employeeId },
+            select: { org_id: true, country_code: true }
+        });
+
+        if (!targetEmployee) {
+            return NextResponse.json({ error: "Employee not found" }, { status: 404 });
+        }
+
+        if (targetEmployee.org_id !== hrEmployee.org_id) {
+            return NextResponse.json({ error: "Cannot modify balance for employee in different organization" }, { status: 403 });
+        }
+
         // Get current balance
         // Get current year
         const currentYear = new Date().getFullYear();
@@ -38,12 +63,6 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        // Get employee's country code
-        const targetEmployee = await prisma.employee.findUnique({
-            where: { emp_id: employeeId },
-            select: { country_code: true }
-        });
-
         if (!balance) {
             // Create new balance if doesn't exist
             await prisma.leaveBalance.create({
@@ -52,14 +71,14 @@ export async function POST(request: NextRequest) {
                     leave_type: leaveType,
                     country_code: targetEmployee?.country_code || "IN",
                     year: currentYear,
-                    annual_entitlement: Math.max(0, adjustment),
+                    annual_entitlement: Math.max(0, adjustmentNum),
                     used_days: 0,
                     pending_days: 0
                 }
             });
         } else {
             // Update existing balance
-            const newEntitlement = Number(balance.annual_entitlement) + adjustment;
+            const newEntitlement = Number(balance.annual_entitlement) + adjustmentNum;
             await prisma.leaveBalance.update({
                 where: { balance_id: balance.balance_id },
                 data: {

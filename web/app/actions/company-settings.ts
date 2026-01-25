@@ -54,6 +54,21 @@ export interface LeaveRuleInput {
     departments?: string[];
 }
 
+// Approval Settings for auto-approve/escalate rules
+export interface ApprovalSettingsInput {
+    auto_approve_max_days: number;
+    auto_approve_min_notice: number;
+    auto_approve_leave_types: string[];
+    escalate_above_days: number;
+    escalate_consecutive_leaves: boolean;
+    escalate_low_balance: boolean;
+    max_concurrent_leaves: number;
+    min_team_coverage: number;
+    blackout_dates: string[];
+    blackout_days_of_week: number[];
+    require_document_above_days: number;
+}
+
 // Default leave types for India
 const DEFAULT_LEAVE_TYPES: LeaveTypeInput[] = [
     {
@@ -225,6 +240,80 @@ export async function saveLeaveSettings(companyId: string, settings: LeaveSettin
     } catch (error: any) {
         console.error("[saveLeaveSettings] Error:", error);
         return { success: false, error: error.message || "Failed to save leave settings" };
+    }
+}
+
+/* =========================================================================
+   2b. SAVE APPROVAL SETTINGS (Auto-Approve/Escalate Rules)
+   Saves approval rules to ConstraintPolicy with standardized structure
+   ========================================================================= */
+export async function saveApprovalSettings(companyId: string, settings: ApprovalSettingsInput) {
+    const user = await currentUser();
+    if (!user) throw new Error("Unauthorized");
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            select: { org_id: true, role: true }
+        });
+
+        if (!employee || employee.org_id !== companyId || employee.role !== 'hr') {
+            return { success: false, error: "Not authorized" };
+        }
+
+        // Structure the rules in the format the constraint engine expects
+        const policyRules = {
+            // Auto-approval rules
+            auto_approve: {
+                max_days: settings.auto_approve_max_days,
+                min_notice_days: settings.auto_approve_min_notice,
+                allowed_leave_types: settings.auto_approve_leave_types,
+            },
+            // Escalation triggers
+            escalation: {
+                above_days: settings.escalate_above_days,
+                consecutive_leaves: settings.escalate_consecutive_leaves,
+                low_balance: settings.escalate_low_balance,
+                require_document_above_days: settings.require_document_above_days,
+            },
+            // Team coverage
+            team_coverage: {
+                max_concurrent: settings.max_concurrent_leaves,
+                min_coverage: settings.min_team_coverage,
+            },
+            // Blackout periods
+            blackout: {
+                dates: settings.blackout_dates,
+                days_of_week: settings.blackout_days_of_week,
+            },
+        };
+
+        // Upsert the ConstraintPolicy - create or update
+        await prisma.constraintPolicy.upsert({
+            where: {
+                // Find existing active policy for this org
+                id: await prisma.constraintPolicy.findFirst({
+                    where: { org_id: companyId, is_active: true },
+                    select: { id: true }
+                }).then(p => p?.id || 'new-policy-' + Date.now())
+            },
+            create: {
+                org_id: companyId,
+                name: "Company Policy",
+                rules: policyRules,
+                is_active: true,
+            },
+            update: {
+                rules: policyRules,
+                updated_at: new Date(),
+            }
+        });
+
+        revalidatePath("/hr/settings");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[saveApprovalSettings] Error:", error);
+        return { success: false, error: error.message || "Failed to save approval settings" };
     }
 }
 

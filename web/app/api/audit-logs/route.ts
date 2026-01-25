@@ -184,9 +184,32 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST - Create new audit log entry (internal use)
+// POST - Create new audit log entry (internal use only)
+// Requires either: valid user session OR internal API secret
 export async function POST(request: NextRequest) {
     try {
+        // Security: Require authentication or internal secret
+        const authHeader = request.headers.get('x-internal-secret');
+        const internalSecret = process.env.INTERNAL_API_SECRET;
+        
+        // Allow if internal secret matches OR user is authenticated with HR role
+        if (authHeader !== internalSecret) {
+            const { userId } = await auth();
+            if (!userId) {
+                return NextResponse.json({ error: "Unauthorized - authentication required" }, { status: 401 });
+            }
+            
+            // Verify user has permission to create audit logs
+            const employee = await prisma.employee.findFirst({
+                where: { clerk_id: userId },
+                select: { role: true }
+            });
+            
+            if (!employee || !["hr", "admin", "super_admin"].includes(employee.role || "")) {
+                return NextResponse.json({ error: "Forbidden - insufficient permissions" }, { status: 403 });
+            }
+        }
+
         const body = await request.json();
         const {
             actor_type,

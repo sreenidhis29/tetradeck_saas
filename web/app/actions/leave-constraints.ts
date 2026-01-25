@@ -346,8 +346,123 @@ export async function analyzeLeaveRequest(
 
         // 9. Prepare legacy policy rules for AI engine
         const legacyRules = legacyPolicy?.rules as any || {};
+        
+        // 10. Get approval settings from the policy
+        const approvalSettings = {
+            auto_approve: legacyRules.auto_approve || { max_days: 3, min_notice_days: 1, allowed_leave_types: ["CL", "SL"] },
+            escalation: legacyRules.escalation || { above_days: 5, consecutive_leaves: true, low_balance: true, require_document_above_days: 3 },
+            team_coverage: legacyRules.team_coverage || { max_concurrent: 3, min_coverage: 2 },
+            blackout: legacyRules.blackout || { dates: [], days_of_week: [] },
+        };
 
-        // 10. Construct Payload with COMPANY-SPECIFIC data
+        // 11. Evaluate approval rules from ConstraintPolicy
+        let canAutoApprove = true;
+        
+        // Check if leave type is allowed for auto-approve
+        if (!approvalSettings.auto_approve.allowed_leave_types?.includes(leaveDetails.type.toUpperCase())) {
+            canAutoApprove = false;
+            suggestions.push(`${leaveTypeConfig.name} requires HR approval for all requests`);
+        }
+        
+        // Check max days for auto-approve
+        if (leaveDetails.days > approvalSettings.auto_approve.max_days) {
+            canAutoApprove = false;
+            suggestions.push(`Requests over ${approvalSettings.auto_approve.max_days} days require HR approval`);
+        }
+        
+        // Check minimum notice for auto-approve
+        if (daysUntilStart < approvalSettings.auto_approve.min_notice_days) {
+            canAutoApprove = false;
+            suggestions.push(`Auto-approval requires ${approvalSettings.auto_approve.min_notice_days} days advance notice`);
+        }
+        
+        // Check escalation triggers
+        if (leaveDetails.days > approvalSettings.escalation.above_days) {
+            canAutoApprove = false;
+            violations.push(`Leave of ${leaveDetails.days} days exceeds auto-approve limit (${approvalSettings.escalation.above_days} days)`);
+        }
+        
+        // Check low balance escalation
+        if (approvalSettings.escalation.low_balance && remainingBalance - leaveDetails.days < 2) {
+            canAutoApprove = false;
+            suggestions.push("Low remaining balance - escalated to HR for review");
+        }
+        
+        // Check consecutive leave escalation
+        if (approvalSettings.escalation.consecutive_leaves) {
+            // Look for approved leaves in the past 30 days
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const recentLeaves = await prisma.leaveRequest.count({
+                where: {
+                    emp_id: employee.emp_id,
+                    status: 'approved',
+                    end_date: {
+                        gte: thirtyDaysAgo
+                    }
+                }
+            });
+            
+            // Also check if requested leave starts within 7 days of a previous leave ending
+            const leaveEndingNearStart = await prisma.leaveRequest.findFirst({
+                where: {
+                    emp_id: employee.emp_id,
+                    status: 'approved',
+                    end_date: {
+                        gte: new Date(new Date(leaveDetails.startDate).getTime() - 7 * 24 * 60 * 60 * 1000),
+                        lt: new Date(leaveDetails.startDate)
+                    }
+                }
+            });
+            
+            if (recentLeaves >= 2 || leaveEndingNearStart) {
+                canAutoApprove = false;
+                const reason = leaveEndingNearStart 
+                    ? "New leave request starts within 7 days of your previous leave ending"
+                    : `You have had ${recentLeaves} approved leaves in the past 30 days`;
+                suggestions.push(`Consecutive leave detected: ${reason} - escalated to HR`);
+            }
+        }
+        
+        // Check blackout dates from ConstraintPolicy
+        if (approvalSettings.blackout.dates?.length > 0) {
+            const startDate = new Date(leaveDetails.startDate);
+            const endDate = new Date(leaveDetails.endDate);
+            
+            for (const blackoutDate of approvalSettings.blackout.dates) {
+                const blackout = new Date(blackoutDate);
+                if (blackout >= startDate && blackout <= endDate) {
+                    canAutoApprove = false;
+                    violations.push(`${blackout.toLocaleDateString()} is a blackout date - no leave allowed`);
+                }
+            }
+        }
+        
+        // Check blackout days of week
+        if (approvalSettings.blackout.days_of_week?.length > 0) {
+            const startDay = new Date(leaveDetails.startDate).getDay();
+            const blockedDay = startDay === 0 ? 7 : startDay; // Convert Sunday from 0 to 7
+            
+            if (approvalSettings.blackout.days_of_week.includes(blockedDay)) {
+                canAutoApprove = false;
+                const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                violations.push(`${dayNames[blockedDay]} is a restricted day for leave`);
+            }
+        }
+        
+        // Check team coverage from ConstraintPolicy
+        if (teamState.alreadyOnLeave >= approvalSettings.team_coverage.max_concurrent) {
+            canAutoApprove = false;
+            violations.push(`Team leave limit reached: ${teamState.alreadyOnLeave} already on leave (max: ${approvalSettings.team_coverage.max_concurrent})`);
+        }
+        
+        if (teamState.teamSize - teamState.alreadyOnLeave - 1 < approvalSettings.team_coverage.min_coverage) {
+            canAutoApprove = false;
+            violations.push(`Insufficient team coverage: minimum ${approvalSettings.team_coverage.min_coverage} members required`);
+        }
+
+        // 12. Construct Payload with COMPANY-SPECIFIC data
         const payload = {
             text: leaveDetails.reason,
             employee_id: employee.emp_id,
@@ -409,7 +524,7 @@ export async function analyzeLeaveRequest(
             if (violations.length > 0) {
                 analysis.violations = [...violations, ...(analysis.violations || [])];
                 analysis.suggestions = [...suggestions, ...(analysis.suggestions || [])];
-                if (ruleResults.blocking) {
+                if (ruleResults.blocking || !canAutoApprove) {
                     analysis.approved = false;
                 }
             }
@@ -424,9 +539,9 @@ export async function analyzeLeaveRequest(
         } catch (agentError) {
             console.error("AI Agent Unreachable:", agentError);
             
-            // Graceful Fallback - Use local evaluation results
-            const canAutoApprove = violations.length === 0 && 
-                                   !leaveDetails.isHalfDay && 
+            // Graceful Fallback - Use local evaluation results with proper canAutoApprove check
+            const localCanApprove = canAutoApprove && 
+                                   violations.length === 0 && 
                                    remainingBalance >= leaveDetails.days &&
                                    !ruleResults.blocking;
             
@@ -436,19 +551,19 @@ export async function analyzeLeaveRequest(
                 companyName: employee.company.name,
                 leaveTypeConfig,
                 analysis: {
-                    approved: canAutoApprove,
-                    message: canAutoApprove 
+                    approved: localCanApprove,
+                    message: localCanApprove 
                         ? `Request validated for ${employee.company.name} (AI engine unavailable)`
                         : "Escalated for manual review",
                     violations: violations,
                     suggestions: suggestions,
-                    confidence: canAutoApprove ? 0.75 : 0.5,
+                    confidence: localCanApprove ? 0.75 : 0.5,
                     explanation: `⚠️ AI Constraint Engine temporarily unavailable. ${
-                        canAutoApprove 
+                        localCanApprove 
                             ? `Basic validation passed for ${employee.company.name} - request auto-approved.` 
                             : `Manual review required: ${violations.join('; ') || 'Safety escalation'}`
                     }`,
-                    decision_reason: canAutoApprove 
+                    decision_reason: localCanApprove 
                         ? `Local validation passed all ${employee.company.name} policy checks`
                         : `Escalated: ${violations[0] || 'AI engine offline, safety escalation'}`
                 }

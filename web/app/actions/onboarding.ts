@@ -284,48 +284,55 @@ export async function joinCompany(code: string) {
             return { success: false, error: "Invalid Company Code" };
         }
 
-        // Get current onboarding data before updating
-        const currentEmployee = await prisma.employee.findUnique({
-            where: { clerk_id: user.id },
-            select: { onboarding_data: true }
-        });
+        // Use transaction to ensure atomicity of employee update + audit log
+        const employee = await prisma.$transaction(async (tx) => {
+            // Get current onboarding data before updating
+            const currentEmployee = await tx.employee.findUnique({
+                where: { clerk_id: user.id },
+                select: { onboarding_data: true }
+            });
 
-        // Link employee but set to pending approval
-        const employee = await prisma.employee.update({
-            where: { clerk_id: user.id },
-            data: {
-                org_id: company.id,
-                // Employee needs HR approval
-                onboarding_status: "pending_approval",
-                onboarding_step: "pending_approval",
-                approval_status: "pending",
-                onboarding_completed: false,
-                onboarding_data: {
-                    ...(currentEmployee?.onboarding_data as object || {}),
-                    companyCode: code,
-                    joinedAt: new Date().toISOString(),
+            // Link employee but set to pending approval
+            const updatedEmployee = await tx.employee.update({
+                where: { clerk_id: user.id },
+                data: {
+                    org_id: company.id,
+                    // Employee needs HR approval
+                    onboarding_status: "pending_approval",
+                    onboarding_step: "pending_approval",
+                    approval_status: "pending",
+                    onboarding_completed: false,
+                    onboarding_data: {
+                        ...(currentEmployee?.onboarding_data as object || {}),
+                        companyCode: code,
+                        joinedAt: new Date().toISOString(),
+                    },
                 },
-            },
+            });
+
+            // Create audit log within same transaction
+            await tx.auditLog.create({
+                data: {
+                    actor_id: updatedEmployee.emp_id,
+                    action: AuditAction.EMPLOYEE_REGISTERED,
+                    entity_type: 'Employee',
+                    entity_id: updatedEmployee.emp_id,
+                    target_org: company.id,
+                    details: {
+                        actor_type: 'user',
+                        employeeName: updatedEmployee.full_name,
+                        employeeEmail: updatedEmployee.email,
+                        companyId: company.id,
+                        companyName: company.name,
+                        companyCode: code
+                    }
+                }
+            });
+
+            return updatedEmployee;
         });
 
-        // Log audit event for employee registration request
-        await logAudit({
-            actorId: employee.emp_id,
-            actorType: 'user',
-            action: AuditAction.EMPLOYEE_REGISTERED,
-            entityType: 'Employee',
-            entityId: employee.emp_id,
-            details: {
-                employeeName: employee.full_name,
-                employeeEmail: employee.email,
-                companyId: company.id,
-                companyName: company.name,
-                companyCode: code
-            },
-            orgId: company.id
-        });
-
-        // Notify HR about new registration
+        // Notify HR about new registration (outside transaction - non-critical)
         const hrUsers = await prisma.employee.findMany({
             where: {
                 org_id: company.id,

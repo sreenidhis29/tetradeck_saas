@@ -334,10 +334,11 @@ export async function processPayroll(month: number, year: number) {
         
         const payroll = calculation.payroll;
         
-        // Save each payroll record to database
-        const savedRecords = await Promise.all(
-            payroll.map(async (record: PayrollCalculation) => {
-                return prisma.payroll.upsert({
+        // RELIABILITY: Save all payroll records atomically in a transaction
+        // If any record fails, all changes are rolled back
+        const savedRecords = await prisma.$transaction(
+            payroll.map((record: PayrollCalculation) => 
+                prisma.payroll.upsert({
                     where: {
                         emp_id_month_year: {
                             emp_id: record.emp_id,
@@ -364,8 +365,8 @@ export async function processPayroll(month: number, year: number) {
                         status: 'processed',
                         processed_date: new Date()
                     }
-                });
-            })
+                })
+            )
         );
         
         revalidatePath('/hr/payroll');
