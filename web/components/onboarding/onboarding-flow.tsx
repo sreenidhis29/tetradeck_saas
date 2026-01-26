@@ -25,13 +25,29 @@ export function OnboardingFlow({ user, intent, savedData }: { user: any; intent:
     // Determine initial step based on user's saved progress
     const determineInitialStep = (): "legal" | "choice" | "details" | "create" | "constraints" | "join" | "pending_approval" => {
         // If already pending approval AND has org_id, show pending screen
+        // CRITICAL: This BLOCKS switching to HR flow when already joined a company
         if (user?.onboarding_status === "pending_approval" && user?.org_id) {
             return "pending_approval" as any;
         }
 
-        // If user already has org_id but not pending, they're done - this shouldn't happen but handle it
-        if (user?.org_id && user?.onboarding_completed) {
-            return "pending_approval" as any; // Will be redirected by server
+        // SECURITY: If user has joined a company (has org_id), they CANNOT switch to HR flow
+        // This prevents employees from creating a competing company
+        if (user?.org_id) {
+            if (user?.onboarding_completed) {
+                return "pending_approval" as any; // Will be redirected by server
+            }
+            // They're mid-employee flow, keep them there
+            return "pending_approval" as any;
+        }
+
+        // SECURITY: If user has pending approval status but no org_id, they were rejected
+        // Allow them to restart
+        if (user?.approval_status === "rejected") {
+            // Rejected user - let them choose again
+            if (user?.terms_accepted_at) {
+                return 'choice';
+            }
+            return "legal";
         }
 
         // IMPORTANT: Intent takes priority over saved step
@@ -69,11 +85,18 @@ export function OnboardingFlow({ user, intent, savedData }: { user: any; intent:
     const [step, setStep] = useState<"legal" | "choice" | "details" | "create" | "constraints" | "join" | "pending_approval">(determineInitialStep);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+    const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
     const router = useRouter();
 
-    // Created company ID (for settings step)
-    const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(null);
+    // Created company ID (for settings step) - restore from user.org_id if on constraints step
+    // This fixes the issue where refresh loses the companyId
+    const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(() => {
+        // If user is HR with org_id and onboarding not complete, restore the company ID
+        if (user?.org_id && user?.role === "hr" && !user?.onboarding_completed) {
+            return user.org_id;
+        }
+        return null;
+    });
 
     // Form States - Initialize from saved data
     const [companyName, setCompanyName] = useState(savedData?.companyName || "");
@@ -95,18 +118,29 @@ export function OnboardingFlow({ user, intent, savedData }: { user: any; intent:
             const timeoutId = setTimeout(async () => {
                 if (dept || position || empLocation || companyName || companyCode) {
                     setAutoSaveStatus("saving");
-                    await saveOnboardingProgress(step, {
-                        department: dept,
-                        position: position,
-                        location: empLocation || location,
-                        companyName,
-                        industry,
-                        size,
-                        website,
-                        companyCode,
-                    });
-                    setAutoSaveStatus("saved");
-                    setTimeout(() => setAutoSaveStatus("idle"), 2000);
+                    try {
+                        const result = await saveOnboardingProgress(step, {
+                            department: dept,
+                            position: position,
+                            location: empLocation || location,
+                            companyName,
+                            industry,
+                            size,
+                            website,
+                            companyCode,
+                        });
+                        if (result?.success) {
+                            setAutoSaveStatus("saved");
+                            setTimeout(() => setAutoSaveStatus("idle"), 2000);
+                        } else {
+                            setAutoSaveStatus("error");
+                            setTimeout(() => setAutoSaveStatus("idle"), 3000);
+                        }
+                    } catch (err) {
+                        console.error("[Onboarding] Auto-save failed:", err);
+                        setAutoSaveStatus("error");
+                        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+                    }
                 }
             }, 1000);
 
@@ -624,6 +658,12 @@ export function OnboardingFlow({ user, intent, savedData }: { user: any; intent:
                             <>
                                 <CheckCircle className="w-4 h-4 text-emerald-400" />
                                 <span className="text-sm text-slate-300">Progress saved</span>
+                            </>
+                        )}
+                        {autoSaveStatus === "error" && (
+                            <>
+                                <AlertCircle className="w-4 h-4 text-red-400" />
+                                <span className="text-sm text-red-300">Failed to save</span>
                             </>
                         )}
                     </motion.div>

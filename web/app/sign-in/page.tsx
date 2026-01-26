@@ -1,9 +1,35 @@
-"use client";
-
+import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, Users, ArrowRight } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
-export default function SignInPage() {
+export default async function SignInPage() {
+    // Check if user is already authenticated
+    const user = await currentUser();
+    
+    if (user) {
+        // User is logged in - check their role and redirect appropriately
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            select: { role: true, onboarding_completed: true, org_id: true, approval_status: true }
+        });
+        
+        if (employee) {
+            // If HR with completed onboarding, go to HR dashboard
+            if (employee.role === "hr" && employee.onboarding_completed && employee.org_id) {
+                return redirect("/hr/dashboard");
+            }
+            // If employee who is approved, go to employee dashboard
+            if (employee.role === "employee" && employee.approval_status === "approved" && employee.onboarding_completed) {
+                return redirect("/employee/dashboard");
+            }
+            // Otherwise, continue onboarding
+            const intent = employee.role === "hr" ? "hr" : "employee";
+            return redirect(`/onboarding?intent=${intent}`);
+        }
+    }
+    
     return (
         <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
             {/* Background Effects */}

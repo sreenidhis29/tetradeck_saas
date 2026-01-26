@@ -536,7 +536,7 @@ export async function getPendingEmployeeApprovals() {
 }
 
 // Seed leave balances for a newly approved employee
-async function seedLeaveBalancesForEmployee(empId: string, orgId: string) {
+async function seedLeaveBalancesForEmployee(empId: string, orgId: string): Promise<{ success: boolean; error?: string; count?: number }> {
     try {
         // Get company's leave types
         const leaveTypes = await prisma.leaveType.findMany({
@@ -544,8 +544,9 @@ async function seedLeaveBalancesForEmployee(empId: string, orgId: string) {
         });
 
         if (leaveTypes.length === 0) {
-            console.log(`[seedLeaveBalances] No leave types found for org ${orgId}, skipping`);
-            return;
+            console.warn(`[seedLeaveBalances] WARNING: No leave types found for org ${orgId}`);
+            // This is a problem - company should have leave types
+            return { success: false, error: "Company has no leave types configured" };
         }
 
         // Get employee's country code
@@ -557,6 +558,7 @@ async function seedLeaveBalancesForEmployee(empId: string, orgId: string) {
         const currentYear = new Date().getFullYear();
         const countryCode = employee?.country_code || 'IN'; // Default to India
 
+        let created = 0;
         // Create leave balance for each leave type
         for (const lt of leaveTypes) {
             // Check if balance already exists
@@ -581,13 +583,15 @@ async function seedLeaveBalancesForEmployee(empId: string, orgId: string) {
                         carried_forward: 0,
                     }
                 });
+                created++;
             }
         }
 
-        console.log(`[seedLeaveBalances] Created ${leaveTypes.length} leave balances for employee ${empId}`);
-    } catch (error) {
+        console.log(`[seedLeaveBalances] Created ${created} leave balances for employee ${empId}`);
+        return { success: true, count: created };
+    } catch (error: any) {
         console.error(`[seedLeaveBalances] Error:`, error);
-        // Don't throw - this is non-critical
+        return { success: false, error: error?.message || "Failed to seed leave balances" };
     }
 }
 
@@ -606,6 +610,25 @@ export async function approveEmployee(empId: string) {
             return { success: false, error: "Access denied" };
         }
 
+        if (!hrEmployee.org_id) {
+            return { success: false, error: "You must belong to a company to approve employees" };
+        }
+
+        // CRITICAL: Verify employee belongs to the SAME company as HR
+        const targetEmployee = await prisma.employee.findUnique({
+            where: { emp_id: empId },
+            select: { org_id: true, full_name: true }
+        });
+
+        if (!targetEmployee) {
+            return { success: false, error: "Employee not found" };
+        }
+
+        if (targetEmployee.org_id !== hrEmployee.org_id) {
+            console.error(`[SECURITY] Cross-tenant approval attempt: HR ${hrEmployee.emp_id} tried to approve ${empId} from different org`);
+            return { success: false, error: "Access denied - employee not in your organization" };
+        }
+
         const employee = await prisma.employee.update({
             where: { emp_id: empId },
             data: {
@@ -619,8 +642,13 @@ export async function approveEmployee(empId: string) {
         });
 
         // CRITICAL: Seed leave balances for the approved employee
+        let leaveBalanceWarning: string | null = null;
         if (hrEmployee.org_id) {
-            await seedLeaveBalancesForEmployee(empId, hrEmployee.org_id);
+            const seedResult = await seedLeaveBalancesForEmployee(empId, hrEmployee.org_id);
+            if (!seedResult.success) {
+                leaveBalanceWarning = seedResult.error || "Failed to seed leave balances";
+                console.warn(`[approveEmployee] Leave balance seeding failed: ${leaveBalanceWarning}`);
+            }
         }
 
         // Log audit event
@@ -663,7 +691,11 @@ export async function approveEmployee(empId: string) {
         }).catch(err => console.error('Registration approval email failed:', err));
 
         revalidatePath("/hr");
-        return { success: true, employee };
+        return { 
+            success: true, 
+            employee,
+            warning: leaveBalanceWarning // Let UI show warning if balances failed
+        };
     } catch (error: any) {
         console.error("[approveEmployee] Database error:", error?.message || error);
         if (error?.code === 'P1001' || error?.code === 'P1002') {
@@ -691,13 +723,33 @@ export async function rejectEmployee(empId: string, reason: string) {
             return { success: false, error: "Access denied" };
         }
 
+        if (!hrEmployee.org_id) {
+            return { success: false, error: "You must belong to a company to reject employees" };
+        }
+
+        // CRITICAL: Verify employee belongs to the SAME company as HR
+        const targetEmployee = await prisma.employee.findUnique({
+            where: { emp_id: empId },
+            select: { org_id: true, full_name: true }
+        });
+
+        if (!targetEmployee) {
+            return { success: false, error: "Employee not found" };
+        }
+
+        if (targetEmployee.org_id !== hrEmployee.org_id) {
+            console.error(`[SECURITY] Cross-tenant rejection attempt: HR ${hrEmployee.emp_id} tried to reject ${empId} from different org`);
+            return { success: false, error: "Access denied - employee not in your organization" };
+        }
+
         const rejectedEmployee = await prisma.employee.update({
             where: { emp_id: empId },
             data: {
                 approval_status: "rejected",
                 rejection_reason: reason,
-                onboarding_status: "not_started",
+                onboarding_status: "rejected",
                 org_id: null, // Remove from company
+                onboarding_completed: false,
             },
         });
 
@@ -736,6 +788,47 @@ export async function rejectEmployee(empId: string, reason: string) {
             return { success: false, error: "Employee not found." };
         }
         return { success: false, error: `Failed to reject employee: ${error?.message || 'Unknown error'}` };
+    }
+}
+
+/* =========================================================================
+   8a. RESET REJECTED EMPLOYEE STATE
+   Allows a rejected employee to try again with a different company
+   ========================================================================= */
+export async function resetRejectedEmployeeState() {
+    const user = await currentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    try {
+        const employee = await prisma.employee.findUnique({
+            where: { clerk_id: user.id },
+            select: { approval_status: true }
+        });
+
+        // Only allow reset if actually rejected
+        if (!employee || employee.approval_status !== "rejected") {
+            return { success: false, error: "Invalid state - you are not rejected" };
+        }
+
+        await prisma.employee.update({
+            where: { clerk_id: user.id },
+            data: {
+                approval_status: null,
+                rejection_reason: null,
+                onboarding_status: "in_progress",
+                onboarding_step: "details",
+                onboarding_completed: false,
+                org_id: null,
+                onboarding_data: {},
+            },
+        });
+
+        revalidatePath("/onboarding");
+        revalidatePath("/employee");
+        return { success: true };
+    } catch (error: any) {
+        console.error("[resetRejectedEmployeeState] Error:", error?.message || error);
+        return { success: false, error: `Failed to reset state: ${error?.message || 'Unknown error'}` };
     }
 }
 

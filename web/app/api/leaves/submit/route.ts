@@ -63,6 +63,23 @@ export async function POST(req: NextRequest) {
             }, { status: 404 });
         }
 
+        // CRITICAL: Verify employee is approved and onboarded
+        if ((employee as any).approval_status !== "approved") {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Account not approved",
+                explanation: "Your account is pending HR approval. You cannot submit leave requests until approved."
+            }, { status: 403 });
+        }
+
+        if (!(employee as any).onboarding_completed) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Onboarding incomplete",
+                explanation: "Please complete the onboarding process before submitting leave requests."
+            }, { status: 403 });
+        }
+
         explanations.push(`Employee: ${employee.full_name} (${employee.department || 'No Department'})`);
 
         // Determine status based on AI recommendation
