@@ -61,11 +61,14 @@ export async function getHRDashboardStats() {
                     clerk_id: { not: user.id }
                 }
             }),
-            // New employees this week
+            // New employees this week (use approved_at or hire_date)
             prisma.employee.count({
                 where: {
                     org_id: orgId,
-                    created_at: { gte: oneWeekAgo }
+                    OR: [
+                        { approved_at: { gte: oneWeekAgo } },
+                        { hire_date: { gte: oneWeekAgo } }
+                    ]
                 }
             }),
             // Pending Requests (Pending + Escalated)
@@ -451,6 +454,38 @@ export async function updateLeaveRequestStatus(
         const currentYear = new Date().getFullYear();
         const leaveTypeKey = request.leave_type.toLowerCase().replace(" leave", "") === "annual" ? "vacation" :
             request.leave_type.toLowerCase().replace(" leave", "");
+
+        // CRITICAL: Check balance before approving to prevent negative balances
+        if (status === 'approved') {
+            // Get company settings for negative balance policy
+            const company = await prisma.company.findUnique({
+                where: { id: hrEmployee.org_id! },
+                select: { negative_balance: true, name: true }
+            });
+
+            // Get current balance
+            const currentBalance = await prisma.leaveBalance.findFirst({
+                where: {
+                    emp_id: request.emp_id,
+                    leave_type: leaveTypeKey,
+                    year: currentYear
+                }
+            });
+
+            if (currentBalance) {
+                const entitlement = Number(currentBalance.annual_entitlement) + Number(currentBalance.carried_forward);
+                const usedAfterApproval = Number(currentBalance.used_days) + Number(request.total_days);
+                const remainingAfterApproval = entitlement - usedAfterApproval;
+
+                // If company doesn't allow negative balance, block approval
+                if (!company?.negative_balance && remainingAfterApproval < 0) {
+                    return { 
+                        success: false, 
+                        error: `Cannot approve: Employee would have ${Math.abs(remainingAfterApproval).toFixed(1)} days negative balance. ${company?.name || 'This company'} does not allow negative leave balances. Available: ${(entitlement - Number(currentBalance.used_days)).toFixed(1)} days, Requested: ${request.total_days} days.`
+                    };
+                }
+            }
+        }
 
         // Generate explanation for the decision
         const decisionReason = hrReason || (status === 'approved' 
